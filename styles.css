@@ -124,6 +124,12 @@ main {
     min-height: 100px;
 }
 
+/* IME自動起動（ひらがな入力） */
+.ime-active {
+    ime-mode: active; /* IE/Edge用 */
+    -ms-ime-mode: active; /* IE用 */
+}
+
 /* 数値入力 */
 .form-group input[type="number"] {
     max-width: 200px;

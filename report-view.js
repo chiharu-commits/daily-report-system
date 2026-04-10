@@ -238,17 +238,23 @@ async function generateRemarksSummaryByGroup(data) {
         // 分類ごとに備考をグループ化
         const groupedRemarks = {};
 
+        // まず全ての分類を初期化
+        data.forEach(row => {
+            const category = row.category || '未分類';
+            if (!groupedRemarks[category]) {
+                groupedRemarks[category] = {
+                    category: category,
+                    remarks: []
+                };
+            }
+        });
+
+        // 備考を分類ごとに追加
         data.forEach(row => {
             const category = row.category || '未分類';
             const remarks = row.remarks ? row.remarks.trim() : '';
 
             if (remarks !== '') {
-                if (!groupedRemarks[category]) {
-                    groupedRemarks[category] = {
-                        category: category,
-                        remarks: []
-                    };
-                }
                 groupedRemarks[category].remarks.push(remarks);
             }
         });
@@ -259,12 +265,23 @@ async function generateRemarksSummaryByGroup(data) {
         for (const category in groupedRemarks) {
             const group = groupedRemarks[category];
 
+            // 備考が空の場合
+            if (group.remarks.length === 0) {
+                console.log(`[${group.category}] 備考: なし（Gemini API使用せず）`);
+                summaryResults.push({
+                    category: group.category,
+                    remarksCount: 0,
+                    summary: '備考なし'
+                });
+                continue;
+            }
+
             // 重複を除去
             const uniqueRemarks = [...new Set(group.remarks)];
 
-            console.log(`[${group.category}] 備考: ${uniqueRemarks.length}件`);
+            console.log(`[${group.category}] 備考: ${uniqueRemarks.length}件（Gemini API使用）`);
 
-            // サマリーを生成
+            // サマリーを生成（Gemini API使用）
             const summary = await generateRemarksSummary(uniqueRemarks);
 
             summaryResults.push({

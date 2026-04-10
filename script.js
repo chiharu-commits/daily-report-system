@@ -119,12 +119,12 @@ function addTaskSection() {
 
         <div class="form-group">
             <label for="workContent-${taskCounter}">作業内容 <span class="required">*</span></label>
-            <textarea id="workContent-${taskCounter}" name="workContent" rows="5" required placeholder="作業内容を入力してください"></textarea>
+            <textarea id="workContent-${taskCounter}" name="workContent" rows="5" required placeholder="作業内容を入力してください" lang="ja" class="ime-active"></textarea>
         </div>
 
         <div class="form-group">
             <label for="remarks-${taskCounter}">備考（困ったこと）</label>
-            <textarea id="remarks-${taskCounter}" name="remarks" rows="3" placeholder="困ったことや特記事項があれば入力してください"></textarea>
+            <textarea id="remarks-${taskCounter}" name="remarks" rows="3" placeholder="困ったことや特記事項があれば入力してください" lang="ja" class="ime-active"></textarea>
         </div>
 
         <div class="form-group">

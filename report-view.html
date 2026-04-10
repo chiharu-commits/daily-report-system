@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日報閲覧・集計システム</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="report-view.css">
+    <!-- Excel出力用ライブラリ（ExcelJS: スタイル設定可能） -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>日報閲覧・集計システム</h1>
+            <nav class="header-nav">
+                <a href="index.html" class="nav-link">日報入力</a>
+                <a href="report-view.html" class="nav-link active">日報閲覧</a>
+            </nav>
+        </header>
+
+        <main>
+            <form id="reportSearchForm" class="search-form">
+
+                <!-- 集計単位 -->
+                <section class="form-section">
+                    <h2 class="section-title">集計単位 <span class="required">*</span></h2>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="groupBy" value="name">
+                            <span>名前</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="groupBy" value="category">
+                            <span>分類</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="groupBy" value="task">
+                            <span>タスク</span>
+                        </label>
+                    </div>
+                </section>
+
+                <!-- 集計日時 -->
+                <section class="form-section">
+                    <h2 class="section-title">集計期間</h2>
+
+                    <!-- 期間単位の選択 -->
+                    <div class="form-group">
+                        <label for="periodType">期間単位（オプション）</label>
+                        <select id="periodType" name="periodType">
+                            <option value="">全期間</option>
+                            <option value="month">月単位</option>
+                            <option value="week">週単位</option>
+                            <option value="day">日単位</option>
+                        </select>
+                    </div>
+
+                    <!-- 月選択 -->
+                    <div class="form-group period-group" id="monthGroup" style="display: none;">
+                        <label for="monthPicker">対象月</label>
+                        <input type="month" id="monthPicker" name="monthPicker">
+                    </div>
+
+                    <!-- 週選択 -->
+                    <div class="form-group period-group" id="weekGroup" style="display: none;">
+                        <label for="weekPicker">対象週</label>
+                        <input type="week" id="weekPicker" name="weekPicker">
+                    </div>
+
+                    <!-- 日選択 -->
+                    <div class="form-group period-group" id="dayGroup" style="display: none;">
+                        <label for="dayPicker">対象日</label>
+                        <input type="date" id="dayPicker" name="dayPicker">
+                    </div>
+                </section>
+
+
+                <!-- ボタン -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">検索・集計</button>
+                    <button type="reset" class="btn btn-tertiary">クリア</button>
+                </div>
+            </form>
+
+            <!-- 結果表示エリア -->
+            <section class="results-section" id="resultsSection" style="display: none;">
+                <h2 class="section-title">集計結果</h2>
+                <div id="resultsContainer">
+                    <!-- 結果がここに表示されます -->
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 日報入力システム</p>
+        </footer>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="report-view.js"></script>
+</body>
+</html>

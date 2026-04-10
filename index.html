@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日報入力システム</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="report-view.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>日報入力システム</h1>
+            <nav class="header-nav">
+                <a href="index.html" class="nav-link active">日報入力</a>
+                <a href="report-view.html" class="nav-link">日報閲覧</a>
+            </nav>
+        </header>
+
+        <main>
+            <form id="dailyReportForm" class="report-form">
+                <!-- 名前 -->
+                <div class="form-group">
+                    <label for="name">名前 <span class="required">*</span></label>
+                    <select id="name" name="name" required>
+                        <option value="">選択してください</option>
+                        <!-- config.jsonから読み込み -->
+                    </select>
+                </div>
+
+                <!-- 日付 -->
+                <div class="form-group">
+                    <label for="date">日付 <span class="required">*</span></label>
+                    <input type="date" id="date" name="date" required>
+                </div>
+
+                <!-- タスクセクションのコンテナ -->
+                <div id="tasksContainer">
+                    <!-- 最初のタスクセクション -->
+                    <div class="task-section" data-task-index="0">
+                        <div class="task-header">
+                            <h3>タスク 1</h3>
+                        </div>
+
+                        <!-- 分類 -->
+                        <div class="form-group">
+                            <label for="category-0">分類 <span class="required">*</span></label>
+                            <select id="category-0" name="category" required>
+                                <option value="">選択してください</option>
+                                <!-- config.jsonから読み込み -->
+                            </select>
+                        </div>
+
+                        <!-- タスク名 -->
+                        <div class="form-group">
+                            <label for="taskName-0">タスク名 <span class="required">*</span></label>
+                            <select id="taskName-0" name="taskName" required>
+                                <option value="">選択してください</option>
+                                <!-- config.jsonから読み込み -->
+                            </select>
+                        </div>
+
+                        <!-- 作業内容 -->
+                        <div class="form-group">
+                            <label for="workContent-0">作業内容 <span class="required">*</span></label>
+                            <textarea id="workContent-0" name="workContent" rows="5" required placeholder="作業内容を入力してください"></textarea>
+                        </div>
+
+                        <!-- 備考（困ったこと） -->
+                        <div class="form-group">
+                            <label for="remarks-0">備考（困ったこと）</label>
+                            <textarea id="remarks-0" name="remarks" rows="3" placeholder="困ったことや特記事項があれば入力してください"></textarea>
+                        </div>
+
+                        <!-- 作業時間 -->
+                        <div class="form-group">
+                            <label for="workHours-0">作業時間(h) <span class="required">*</span></label>
+                            <input type="number" id="workHours-0" name="workHours" min="0" step="0.5" required placeholder="例: 2.5">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- タスク追加ボタン -->
+                <div class="form-group">
+                    <button type="button" class="btn btn-add-task" id="addTaskBtn">+ タスクを追加</button>
+                </div>
+
+                <!-- ボタン -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">登録</button>
+                    <button type="reset" class="btn btn-secondary">クリア</button>
+                </div>
+            </form>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 日報入力システム</p>
+        </footer>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

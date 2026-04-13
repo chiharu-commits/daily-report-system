@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>日報修正画面</title>
+  <link rel="stylesheet" href="edit-report.css">
+  <!-- Excel出力用ライブラリ（ExcelJS） -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>日報修正画面</h1>
+      <nav>
+        <a href="index.html" class="nav-link">日報入力</a>
+        <a href="report-view.html" class="nav-link">日報閲覧</a>
+        <a href="edit-report.html" class="nav-link active">日報修正</a>
+      </nav>
+    </header>
+
+    <main>
+      <!-- 検索条件 -->
+      <section class="search-section">
+        <h2>検索条件</h2>
+        <div class="search-form">
+          <div class="form-group">
+            <label for="search-name">名前</label>
+            <select id="search-name" required>
+              <option value="">選択してください</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>検索タイプ</label>
+            <div class="search-type-group">
+              <label class="radio-label">
+                <input type="radio" name="search-type" value="period" checked>
+                <span>期間指定</span>
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="search-type" value="single">
+                <span>日付指定</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 期間指定 -->
+          <div id="period-search" class="form-group">
+            <label>期間</label>
+            <div class="date-range">
+              <input type="date" id="start-date">
+              <span>〜</span>
+              <input type="date" id="end-date">
+            </div>
+            <div class="quick-buttons">
+              <button type="button" class="btn-quick" data-period="thisWeek">今週</button>
+              <button type="button" class="btn-quick" data-period="lastWeek">先週</button>
+              <button type="button" class="btn-quick" data-period="thisMonth">今月</button>
+              <button type="button" class="btn-quick" data-period="lastMonth">先月</button>
+            </div>
+          </div>
+
+          <!-- 日付指定 -->
+          <div id="single-search" class="form-group" style="display: none;">
+            <label>日付</label>
+            <input type="date" id="single-date">
+            <div class="quick-buttons">
+              <button type="button" class="btn-quick" data-period="today">今日</button>
+              <button type="button" class="btn-quick" data-period="yesterday">昨日</button>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" id="btn-search" class="btn-primary">検索</button>
+            <button type="button" id="btn-reset" class="btn-secondary">リセット</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 検索結果 -->
+      <section class="results-section">
+        <div class="results-header">
+          <h2>検索結果 <span id="result-count" class="count-badge">0件</span></h2>
+          <div class="header-buttons">
+            <button type="button" id="btn-export-excel" class="btn-export" disabled>📊 Excel出力</button>
+            <button type="button" id="btn-add-new" class="btn-add-new">+ 新規登録</button>
+          </div>
+        </div>
+        <div id="results-container">
+          <p class="no-data">検索条件を入力して「検索」ボタンをクリックしてください</p>
+        </div>
+      </section>
+    </main>
+
+    <!-- 新規登録モーダル -->
+    <div id="add-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>日報登録</h2>
+          <button class="modal-close" id="btn-close-add-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="add-form">
+            <div class="form-group">
+              <label for="add-name">名前 <span class="required">*</span></label>
+              <select id="add-name" required>
+                <option value="">選択してください</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="add-date">日付 <span class="required">*</span></label>
+              <input type="date" id="add-date" required>
+            </div>
+
+            <div class="form-group">
+              <label for="add-category">分類 <span class="required">*</span></label>
+              <select id="add-category" required>
+                <option value="">選択してください</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="add-task-name">タスク名 <span class="required">*</span></label>
+              <select id="add-task-name" required>
+                <option value="">選択してください</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="add-work-content">作業内容 <span class="required">*</span></label>
+              <textarea id="add-work-content" rows="4" required></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="add-remarks">備考</label>
+              <textarea id="add-remarks" rows="3"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="add-work-hours">作業時間（時間） <span class="required">*</span></label>
+              <input type="number" id="add-work-hours" step="0.5" min="0" max="24" required>
+            </div>
+
+            <div class="modal-actions">
+              <button type="submit" class="btn-primary">登録</button>
+              <button type="button" class="btn-secondary" id="btn-cancel-add">キャンセル</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- 編集モーダル -->
+    <div id="edit-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>日報編集</h2>
+          <button class="modal-close" id="btn-close-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="edit-form">
+            <input type="hidden" id="edit-row-index">
+
+            <div class="form-group">
+              <label for="edit-name">名前 <span class="required">*</span></label>
+              <select id="edit-name" required>
+                <option value="">選択してください</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-date">日付 <span class="required">*</span></label>
+              <input type="date" id="edit-date" required>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-category">分類 <span class="required">*</span></label>
+              <select id="edit-category" required>
+                <option value="">選択してください</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-task-name">タスク名 <span class="required">*</span></label>
+              <select id="edit-task-name" required>
+                <option value="">選択してください</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-work-content">作業内容 <span class="required">*</span></label>
+              <textarea id="edit-work-content" rows="4" required></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-remarks">備考</label>
+              <textarea id="edit-remarks" rows="3"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-work-hours">作業時間（時間） <span class="required">*</span></label>
+              <input type="number" id="edit-work-hours" step="0.5" min="0" max="24" required>
+            </div>
+
+            <div class="modal-actions">
+              <button type="submit" class="btn-primary">更新</button>
+              <button type="button" class="btn-secondary" id="btn-cancel-edit">キャンセル</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- 削除確認モーダル -->
+    <div id="delete-modal" class="modal">
+      <div class="modal-content modal-small">
+        <div class="modal-header">
+          <h2>削除確認</h2>
+          <button class="modal-close" id="btn-close-delete-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="delete-message">この日報を削除してもよろしいですか？</p>
+          <div id="delete-info" class="delete-info"></div>
+          <div class="modal-actions">
+            <button type="button" class="btn-danger" id="btn-confirm-delete">削除</button>
+            <button type="button" class="btn-secondary" id="btn-cancel-delete">キャンセル</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ローディング -->
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+      <p>処理中...</p>
+    </div>
+
+    <!-- トースト通知 -->
+    <div id="toast" class="toast"></div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="edit-report.js"></script>
+</body>
+</html>

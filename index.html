@@ -15,6 +15,7 @@
                 <a href="index.html" class="nav-link active">日報入力</a>
                 <a href="report-view.html" class="nav-link">日報閲覧</a>
                 <a href="edit-report.html" class="nav-link">日報修正</a>
+                <a href="config-manager.html" class="nav-link">設定管理</a>
             </nav>
         </header>
 
@@ -35,6 +36,14 @@
                     <input type="date" id="date" name="date" required>
                 </div>
 
+                <!-- 休み -->
+                <div class="form-group">
+                    <label class="checkbox-label-holiday">
+                        <input type="checkbox" id="isHoliday" name="isHoliday">
+                        <span>休み</span>
+                    </label>
+                </div>
+
                 <!-- タスクセクションのコンテナ -->
                 <div id="tasksContainer">
                     <!-- 最初のタスクセクション -->
@@ -43,9 +52,9 @@
                             <h3>タスク 1</h3>
                         </div>
 
-                        <!-- 分類 -->
+                        <!-- プロジェクト -->
                         <div class="form-group">
-                            <label for="category-0">分類 <span class="required">*</span></label>
+                            <label for="category-0">プロジェクト <span class="required">*</span></label>
                             <select id="category-0" name="category" required>
                                 <option value="">選択してください</option>
                                 <!-- config.jsonから読み込み -->

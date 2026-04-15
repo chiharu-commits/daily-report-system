@@ -17,6 +17,7 @@
                 <a href="index.html" class="nav-link">日報入力</a>
                 <a href="report-view.html" class="nav-link active">日報閲覧</a>
                 <a href="edit-report.html" class="nav-link">日報修正</a>
+                <a href="config-manager.html" class="nav-link">設定管理</a>
             </nav>
         </header>
 
@@ -33,7 +34,7 @@
                         </label>
                         <label class="checkbox-label">
                             <input type="checkbox" name="groupBy" value="category">
-                            <span>分類</span>
+                            <span>プロジェクト</span>
                         </label>
                         <label class="checkbox-label">
                             <input type="checkbox" name="groupBy" value="task">
@@ -86,7 +87,10 @@
 
             <!-- 結果表示エリア -->
             <section class="results-section" id="resultsSection" style="display: none;">
-                <h2 class="section-title">集計結果</h2>
+                <div class="results-header">
+                    <h2 class="section-title">集計結果</h2>
+                    <button type="button" id="btn-export-excel" class="btn-export" style="display: none;">📊 Excel出力</button>
+                </div>
                 <div id="resultsContainer">
                     <!-- 結果がここに表示されます -->
                 </div>

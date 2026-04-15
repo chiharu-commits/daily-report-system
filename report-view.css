@@ -214,6 +214,44 @@ select[multiple] option:hover {
     border: 2px solid #667eea;
 }
 
+.results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.results-header .section-title {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+/* Excel出力ボタン */
+.btn-export {
+    padding: 10px 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.btn-export:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-export:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
 #resultsContainer {
     background: white;
     padding: 24px;
@@ -502,6 +540,43 @@ select[multiple] option:hover {
     .detail-table-wrapper {
         -webkit-overflow-scrolling: touch;
     }
+
+    /* 備考グループのタイトルをスマホ向けに調整 */
+    .remarks-group-title {
+        font-size: 14px;
+        padding: 10px;
+    }
+
+    .toggle-icon {
+        font-size: 12px;
+    }
+
+    .remarks-summary {
+        padding: 12px;
+    }
+
+    .ai-summary {
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    /* 休暇情報をスマホ向けに調整 */
+    .holiday-info {
+        padding: 12px;
+    }
+
+    .holiday-item {
+        padding: 10px;
+        font-size: 14px;
+    }
+
+    .holiday-item strong {
+        font-size: 15px;
+    }
+
+    .holiday-dates {
+        font-size: 13px;
+    }
 }
 
 /* 印刷用スタイル */
@@ -574,6 +649,39 @@ select[multiple] option:hover {
     border-radius: 8px;
     font-size: 16px;
     color: #333;
+}
+
+/* 休暇情報表示 */
+.holiday-info {
+    padding: 16px;
+    background: white;
+    border-radius: 8px;
+}
+
+.holiday-item {
+    padding: 12px;
+    margin-bottom: 12px;
+    background: #fff9e6;
+    border-left: 4px solid #ffc107;
+    border-radius: 6px;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.holiday-item:last-child {
+    margin-bottom: 0;
+}
+
+.holiday-item strong {
+    color: #ff9800;
+    font-size: 16px;
+}
+
+.holiday-dates {
+    margin-top: 4px;
+    color: #666;
+    font-size: 14px;
+    padding-left: 8px;
 }
 
 /* サマリーテーブル */
@@ -649,6 +757,12 @@ select[multiple] option:hover {
     padding: 20px;
     border-radius: 8px;
     min-height: 100px;
+    overflow: hidden;
+}
+
+.remarks-summary.collapsed {
+    padding: 0;
+    min-height: 0;
 }
 
 .ai-summary {
@@ -732,6 +846,51 @@ select[multiple] option:hover {
     border-left: 4px solid #667eea;
 }
 
+/* 折りたたみ機能 */
+.remarks-group-title.collapsible {
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.3s ease;
+    margin-bottom: 12px;
+}
+
+.remarks-group-title.collapsible:hover {
+    background: #e0ebff;
+}
+
+/* 展開時はmargin-bottomを維持、折りたたみ時（expanded無し）は0に */
+.remarks-group-title.collapsible:not(.expanded) {
+    margin-bottom: 0;
+}
+
+.toggle-icon {
+    display: inline-block;
+    margin-right: 8px;
+    font-size: 14px;
+    transition: transform 0.3s ease;
+}
+
+.remarks-summary.collapsed {
+    display: none;
+}
+
+.remarks-summary.expanded {
+    display: block;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        max-height: 0;
+        overflow: hidden;
+    }
+    to {
+        opacity: 1;
+        max-height: 1000px;
+    }
+}
+
 .remarks-group .summary-table {
     margin-top: 8px;
     box-shadow: none;
@@ -746,4 +905,24 @@ select[multiple] option:hover {
 .remarks-group .summary-table th {
     font-size: 13px;
     padding: 10px 12px;
+}
+
+/* サマリーサブセクション */
+.summary-subsection {
+    margin-bottom: 20px;
+}
+
+.summary-subsection:last-child {
+    margin-bottom: 0;
+}
+
+.summary-subtitle {
+    font-size: 15px;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 10px;
+    padding: 6px 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border-left: 3px solid #667eea;
 }

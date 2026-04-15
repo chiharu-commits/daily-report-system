@@ -1,12 +1,37 @@
-// Google Apps ScriptのウェブアプリURL
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyf8fJx5znNDEFfXxpaZE75HiWs8QSM3BKuZuPu_iJ3UWNwtjqrMpSzxAHg2sAXBLfSyA/exec';
+// Google Apps ScriptのウェブアプリURL（config.jsから取得）
+const GOOGLE_SCRIPT_URL = getScriptUrl();
 
 // グローバル変数（エクスポート用にデータを保持）
 let currentResults = null;
 let currentDetailData = null;
+let currentSearchParams = null;
+let currentRemarksSummary = null;
+
+// GASから設定を読み込む
+async function loadConfigFromGAS() {
+    try {
+        // キャッシュバスターを追加してブラウザキャッシュを回避
+        const timestamp = new Date().getTime();
+        const url = `${GOOGLE_SCRIPT_URL}?action=getConfig&_=${timestamp}`;
+        const response = await fetch(url, {
+            cache: 'no-store' // キャッシュを無効化
+        });
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            // CONFIG変数を上書き（report-view.jsではCONFIGを直接使用していないが、将来のために）
+            console.log('✅ GASから設定を読み込みました:', result.data);
+        } else {
+            console.warn('⚠️ GAS設定読み込み失敗、config.jsを使用します:', result.message);
+        }
+    } catch (error) {
+        console.warn('⚠️ GAS設定読み込みエラー、config.jsを使用します:', error);
+    }
+}
 
 // ページ読み込み時の初期化
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    await loadConfigFromGAS();
     loadFilterOptions();
     setupEventListeners();
     setInitialValues();
@@ -22,6 +47,7 @@ function setupEventListeners() {
     document.getElementById('periodType').addEventListener('change', togglePeriodGroup);
     document.getElementById('reportSearchForm').addEventListener('submit', handleSearch);
     document.getElementById('reportSearchForm').addEventListener('reset', handleReset);
+    document.getElementById('btn-export-excel').addEventListener('click', handleExcelExport);
 }
 
 // 初期値の設定
@@ -138,8 +164,11 @@ async function handleSearch(event) {
         // データをフィルタリング
         const filteredData = filterData(allData, searchParams);
 
+        // 休みを除外したデータで集計（休みは別セクションで表示）
+        const dataForAggregation = filteredData.filter(row => row.category !== '休み');
+
         // 選択された集計方法の組み合わせに応じてデータを集計
-        const aggregatedData = aggregateDataByCombination(filteredData, searchParams.groupBy);
+        const aggregatedData = aggregateDataByCombination(dataForAggregation, searchParams.groupBy);
 
         // 分類×タスクごとに備考をグループ化してサマリーを生成
         let remarksSummaryByGroup = null;
@@ -151,11 +180,8 @@ async function handleSearch(event) {
         // エクスポート用にデータを保存
         currentResults = aggregatedData;
         currentDetailData = filteredData;
-
-        // 自動的にExcelエクスポートを実行
-        if (filteredData.length > 0) {
-            await autoExport(searchParams, aggregatedData, remarksSummaryByGroup);
-        }
+        currentSearchParams = searchParams;
+        currentRemarksSummary = remarksSummaryByGroup;
 
     } catch (error) {
         console.error('検索エラー:', error);
@@ -198,16 +224,42 @@ async function fetchDataFromGoogleSheets() {
     }
 }
 
-// Gemini APIを使用して備考サマリーを生成
-async function generateRemarksSummary(remarks) {
+// 項目をカウントしてグループ化
+function countItems(items) {
+    const countMap = {};
+
+    items.forEach(item => {
+        const trimmedItem = item.trim();
+        if (trimmedItem) {
+            countMap[trimmedItem] = (countMap[trimmedItem] || 0) + 1;
+        }
+    });
+
+    // カウント順（降順）にソート
+    const sorted = Object.entries(countMap)
+        .sort((a, b) => b[1] - a[1])
+        .map(([item, count]) => ({ item, count }));
+
+    return sorted;
+}
+
+// 件数付きデータをAIでサマリー生成
+async function generateSummaryWithCounts(itemsWithCounts, type = '備考') {
     try {
-        console.log('備考サマリーを生成中...', remarks.length + '件');
+        console.log(`${type}サマリーを生成中...`, itemsWithCounts.length + '種類');
 
-        const url = `${GOOGLE_SCRIPT_URL}?action=summarize&remarks=${encodeURIComponent(JSON.stringify(remarks))}`;
+        // 件数付きテキストを作成
+        const itemsText = itemsWithCounts
+            .map(({ item, count }) => `${item}（${count}件）`)
+            .join('\n');
 
-        const response = await fetch(url, {
-            method: 'GET',
-            mode: 'cors'
+        // POSTリクエスト
+        const response = await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `action=summarizeWithCounts&itemsText=${encodeURIComponent(itemsText)}&type=${encodeURIComponent(type)}`
         });
 
         if (!response.ok) {
@@ -217,88 +269,122 @@ async function generateRemarksSummary(remarks) {
         const result = await response.json();
 
         if (result.success) {
-            console.log('✅ 備考サマリー生成成功');
+            console.log(`✅ ${type}サマリー生成成功`);
             return result.summary;
         } else {
-            console.warn('⚠️ 備考サマリー生成失敗:', result.message);
-            return `備考サマリーの生成に失敗しました: ${result.message}`;
+            console.warn(`⚠️ ${type}サマリー生成失敗:`, result.message);
+            return `${type}サマリーの生成に失敗しました: ${result.message}`;
         }
 
     } catch (error) {
-        console.error('備考サマリー生成エラー:', error);
-        return `備考サマリーの生成エラー: ${error.message}`;
+        console.error(`${type}サマリー生成エラー:`, error);
+        return `${type}サマリーの生成エラー: ${error.message}`;
     }
 }
 
-// 分類ごとに備考をグループ化してサマリーを生成
+// プロジェクトごとに作業内容と備考をグループ化してサマリーを生成
 async function generateRemarksSummaryByGroup(data) {
     try {
-        console.log('分類ごとに備考サマリーを生成中...');
+        console.log('プロジェクトごとにサマリーを生成中...');
 
-        // 分類ごとに備考をグループ化
-        const groupedRemarks = {};
+        // プロジェクトごとにデータをグループ化
+        const groupedData = {};
 
-        // まず全ての分類を初期化
+        // まず全てのプロジェクトを初期化
         data.forEach(row => {
             const category = row.category || '未分類';
-            if (!groupedRemarks[category]) {
-                groupedRemarks[category] = {
+            if (!groupedData[category]) {
+                groupedData[category] = {
                     category: category,
+                    workContents: [],
                     remarks: []
                 };
             }
         });
 
-        // 備考を分類ごとに追加
+        // 作業内容と備考をプロジェクトごとに追加
         data.forEach(row => {
             const category = row.category || '未分類';
+            const workContent = row.workContent ? row.workContent.trim() : '';
             const remarks = row.remarks ? row.remarks.trim() : '';
 
+            if (workContent !== '') {
+                groupedData[category].workContents.push(workContent);
+            }
             if (remarks !== '') {
-                groupedRemarks[category].remarks.push(remarks);
+                groupedData[category].remarks.push(remarks);
             }
         });
 
         // グループごとにサマリーを生成
         const summaryResults = [];
 
-        for (const category in groupedRemarks) {
-            const group = groupedRemarks[category];
+        for (const category in groupedData) {
+            const group = groupedData[category];
 
-            // 備考が空の場合
-            if (group.remarks.length === 0) {
-                console.log(`[${group.category}] 備考: なし（Gemini API使用せず）`);
+            // 「休み」のプロジェクトはスキップ
+            if (group.category === '休み') {
+                console.log(`[${group.category}] スキップ（休みはサマリー不要）`);
+                continue;
+            }
+
+            // 作業内容と備考が両方空の場合
+            if (group.workContents.length === 0 && group.remarks.length === 0) {
+                console.log(`[${group.category}] 作業内容・備考: なし（Gemini API使用せず）`);
                 summaryResults.push({
                     category: group.category,
+                    workContentCount: 0,
                     remarksCount: 0,
-                    summary: '備考なし'
+                    workContentSummary: '作業内容なし',
+                    remarksSummary: '備考なし'
                 });
                 continue;
             }
 
-            // 重複を除去
-            const uniqueRemarks = [...new Set(group.remarks)];
+            // 元データの件数を保存
+            const originalWorkContentCount = group.workContents.length;
+            const originalRemarksCount = group.remarks.length;
 
-            console.log(`[${group.category}] 備考: ${uniqueRemarks.length}件（Gemini API使用）`);
+            console.log(`[${group.category}] 作業内容: ${originalWorkContentCount}件, 備考: ${originalRemarksCount}件`);
 
-            // サマリーを生成（Gemini API使用）
-            const summary = await generateRemarksSummary(uniqueRemarks);
+            // 作業内容を件数カウント付きでグループ化
+            let workContentSummary = '作業内容なし';
+            if (group.workContents.length > 0) {
+                console.log(`  → 作業内容サマリー生成中（Gemini API使用）...`);
+                const workContentWithCounts = countItems(group.workContents);
+                workContentSummary = await generateSummaryWithCounts(workContentWithCounts, '作業内容');
+                // レート制限対策: 1秒待機
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+                console.log(`  → 作業内容: なし（Gemini API使用せず）`);
+            }
+
+            // 備考を件数カウント付きでグループ化
+            let remarksSummary = '備考なし';
+            if (group.remarks.length > 0) {
+                console.log(`  → 備考サマリー生成中（Gemini API使用）...`);
+                const remarksWithCounts = countItems(group.remarks);
+                remarksSummary = await generateSummaryWithCounts(remarksWithCounts, '備考');
+                // レート制限対策: 1秒待機
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+                console.log(`  → 備考: なし（Gemini API使用せず）`);
+            }
 
             summaryResults.push({
                 category: group.category,
-                remarksCount: uniqueRemarks.length,
-                summary: summary
+                workContentCount: originalWorkContentCount,
+                remarksCount: originalRemarksCount,
+                workContentSummary: workContentSummary,
+                remarksSummary: remarksSummary
             });
-
-            // レート制限対策: 1秒待機
-            await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
-        console.log(`✅ ${summaryResults.length}グループのサマリー生成完了`);
+        console.log(`✅ ${summaryResults.length}プロジェクトのサマリー生成完了`);
         return summaryResults;
 
     } catch (error) {
-        console.error('グループ別サマリー生成エラー:', error);
+        console.error('プロジェクト別サマリー生成エラー:', error);
         return null;
     }
 }
@@ -472,6 +558,7 @@ function aggregateDataByCombination(data, groupByArray) {
 // 結果を表示
 function displayResults(aggregatedData, detailData, params, remarksSummary) {
     const resultsContainer = document.getElementById('resultsContainer');
+    const exportBtn = document.getElementById('btn-export-excel');
 
     if (detailData.length === 0) {
         resultsContainer.innerHTML = `
@@ -480,8 +567,13 @@ function displayResults(aggregatedData, detailData, params, remarksSummary) {
                 <p style="font-size: 14px; margin-top: 12px;">検索条件を変更してください</p>
             </div>
         `;
+        // Excel出力ボタンを非表示
+        exportBtn.style.display = 'none';
         return;
     }
+
+    // Excel出力ボタンを表示
+    exportBtn.style.display = 'block';
 
     let html = '<div class="results-wrapper">';
 
@@ -505,26 +597,118 @@ function displayResults(aggregatedData, detailData, params, remarksSummary) {
     // ピボットテーブルを表示
     html += displayPivotTable(aggregatedData, params);
 
-    // 分類ごとの備考サマリーを表示
+    // 名前を含む検索の場合、休暇日数を表示
+    if (params.groupBy.includes('name')) {
+        html += displayHolidayInfo(detailData);
+    }
+
+    // プロジェクトごとのサマリーを表示（「休み」以外）
     if (remarksSummary && remarksSummary.length > 0) {
-        html += '<div class="summary-section">';
-        html += '<h3 class="summary-title">🤖 備考サマリー（AI生成）</h3>';
+        // 「休み」以外のサマリーがあるかチェック
+        const filteredSummary = remarksSummary.filter(group => group.category !== '休み');
 
-        remarksSummary.forEach(group => {
-            html += '<div class="remarks-group">';
-            html += `<h4 class="remarks-group-title">【${group.category}】 備考${group.remarksCount}件</h4>`;
-            html += '<div class="remarks-summary">';
-            html += `<pre class="ai-summary">${group.summary}</pre>`;
-            html += '</div>';
-            html += '</div>';
-        });
+        if (filteredSummary.length > 0) {
+            html += '<div class="summary-section">';
+            html += '<h3 class="summary-title">🤖 サマリー（AI生成）</h3>';
 
-        html += '</div>';
+            filteredSummary.forEach((group, index) => {
+                html += '<div class="remarks-group">';
+                html += `<h4 class="remarks-group-title collapsible" onclick="toggleRemarksSummary(${index})">`;
+                html += `<span class="toggle-icon" id="toggle-icon-${index}">▶</span>`;
+                html += `【${group.category}】`;
+                html += '</h4>';
+                html += `<div class="remarks-summary collapsed" id="remarks-summary-${index}">`;
+
+                // 作業内容サマリー
+                html += '<div class="summary-subsection">';
+                html += `<h5 class="summary-subtitle">📝 作業内容サマリー（${group.workContentCount}件）</h5>`;
+                html += `<pre class="ai-summary">${group.workContentSummary}</pre>`;
+                html += '</div>';
+
+                // 備考サマリー
+                html += '<div class="summary-subsection">';
+                html += `<h5 class="summary-subtitle">💬 備考サマリー（${group.remarksCount}件）</h5>`;
+                html += `<pre class="ai-summary">${group.remarksSummary}</pre>`;
+                html += '</div>';
+                html += '</div>';
+                html += '</div>';
+            });
+
+            html += '</div>';
+        }
     }
 
     html += '</div>';
 
     resultsContainer.innerHTML = html;
+}
+
+// 日付フォーマット（YYYY年MM月DD日）
+function formatDateToJapanese(date) {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    return `${year}年${month}月${day}日`;
+}
+
+// 休暇情報を抽出（共通処理）
+function extractHolidayInfo(detailData) {
+    // 休みのデータを抽出
+    const holidayData = detailData.filter(row => row.category === '休み');
+
+    if (holidayData.length === 0) {
+        return null;
+    }
+
+    // 名前ごとにグループ化
+    const holidayByName = {};
+    holidayData.forEach(row => {
+        const name = row.name;
+        if (!holidayByName[name]) {
+            holidayByName[name] = [];
+        }
+        const date = new Date(row.date);
+        holidayByName[name].push(date);
+    });
+
+    // 日付でソート
+    Object.keys(holidayByName).forEach(name => {
+        holidayByName[name].sort((a, b) => a - b);
+    });
+
+    return holidayByName;
+}
+
+// 休暇情報を表示
+function displayHolidayInfo(detailData) {
+    const holidayByName = extractHolidayInfo(detailData);
+
+    if (!holidayByName) {
+        return ''; // 休みがない場合は何も表示しない
+    }
+
+    let html = '<div class="summary-section">';
+    html += '<h3 class="summary-title">🏖️ 休暇情報</h3>';
+    html += '<div class="holiday-info">';
+
+    // 名前でソート
+    const sortedNames = Object.keys(holidayByName).sort();
+
+    sortedNames.forEach(name => {
+        const dates = holidayByName[name];
+        const dateStrings = dates.map(date => formatDateToJapanese(date));
+
+        html += '<div class="holiday-item">';
+        html += `<strong>${name}：</strong>`;
+        html += `休暇${dates.length}日`;
+        html += `<div class="holiday-dates">（${dateStrings.join('、')}）</div>`;
+        html += '</div>';
+    });
+
+    html += '</div>';
+    html += '</div>';
+
+    return html;
 }
 
 // ピボットテーブルを表示
@@ -536,7 +720,7 @@ function displayPivotTable(data, params) {
     // タイトル作成
     const titleParts = groupByOrder.map(field => {
         if (field === 'name') return '名前';
-        if (field === 'category') return '分類';
+        if (field === 'category') return 'プロジェクト';
         if (field === 'task') return 'タスク';
         return '';
     });
@@ -664,6 +848,9 @@ async function autoExport(searchParams, aggregatedData, remarksSummary) {
         // ピボットテーブルをエクスポート
         exportPivotTable(workbook, aggregatedData, searchParams, borderStyle, remarksSummary);
 
+        // 詳細データをエクスポート（名前別、日付順）
+        exportDetailData(workbook, currentDetailData, searchParams, borderStyle);
+
         // 集計方法の日本語名を取得（複数の場合は結合）
         const groupByNames = searchParams.groupBy.map(type => {
             if (type === 'name') return '名前';
@@ -710,6 +897,12 @@ function exportPivotTable(workbook, data, params, borderStyle, remarksSummary) {
     const sheet = workbook.addWorksheet(sheetName);
 
     let currentRow = 1;
+
+    // 休暇情報を取得（名前を含む検索の場合）
+    let holidayByName = null;
+    if (params.groupBy.includes('name') && currentDetailData) {
+        holidayByName = extractHolidayInfo(currentDetailData);
+    }
 
     // 集計期間
     const numCols = groupByOrder.length + 1; // 集計項目 + 作業時間
@@ -845,54 +1038,317 @@ function exportPivotTable(workbook, data, params, borderStyle, remarksSummary) {
         sheet.getColumn(i).width = 20;
     }
 
-    // 備考サマリーを追加（分類ごと）
-    if (remarksSummary && remarksSummary.length > 0) {
+    // 休暇情報を追加（名前を含む検索の場合）
+    if (holidayByName) {
         currentRow = sheet.lastRow.number + 2;
 
         sheet.mergeCells(`A${currentRow}:${lastCol}${currentRow}`);
-        const summaryTitle = sheet.getCell(`A${currentRow}`);
-        summaryTitle.value = '備考サマリー（AI生成）';
-        summaryTitle.font = { size: 12, bold: true };
-        summaryTitle.fill = {
+        const holidayTitle = sheet.getCell(`A${currentRow}`);
+        holidayTitle.value = '休暇情報';
+        holidayTitle.font = { size: 12, bold: true };
+        holidayTitle.fill = {
             type: 'pattern',
             pattern: 'solid',
             fgColor: { argb: 'FFE0E0E0' }
         };
         currentRow++;
 
-        // 各グループのサマリーを出力
-        remarksSummary.forEach(group => {
-            // グループタイトル
+        // 名前でソート
+        const sortedNames = Object.keys(holidayByName).sort();
+
+        sortedNames.forEach(name => {
+            const dates = holidayByName[name];
+            const dateStrings = dates.map(date => formatDateToJapanese(date));
+
             sheet.mergeCells(`A${currentRow}:${lastCol}${currentRow}`);
-            const groupTitle = sheet.getCell(`A${currentRow}`);
-            groupTitle.value = `【${group.category}】 備考${group.remarksCount}件`;
-            groupTitle.font = { size: 11, bold: true };
-            groupTitle.fill = {
+            const holidayCell = sheet.getCell(`A${currentRow}`);
+            holidayCell.value = `${name}：休暇${dates.length}日（${dateStrings.join('、')}）`;
+            holidayCell.alignment = { vertical: 'middle', horizontal: 'left' };
+            holidayCell.fill = {
                 type: 'pattern',
                 pattern: 'solid',
-                fgColor: { argb: 'FFF0F4FF' }
+                fgColor: { argb: 'FFFFF9E6' }
             };
-            groupTitle.alignment = { vertical: 'middle', horizontal: 'left' };
-            groupTitle.border = borderStyle;
+            holidayCell.border = borderStyle;
+            currentRow++;
+        });
+    }
+
+    // サマリーを追加（プロジェクトごと、「休み」以外）
+    if (remarksSummary && remarksSummary.length > 0) {
+        // 「休み」以外のサマリーがあるかチェック
+        const filteredSummary = remarksSummary.filter(group => group.category !== '休み');
+
+        if (filteredSummary.length > 0) {
+            currentRow = sheet.lastRow.number + 2;
+
+            sheet.mergeCells(`A${currentRow}:${lastCol}${currentRow}`);
+            const summaryTitle = sheet.getCell(`A${currentRow}`);
+            summaryTitle.value = 'サマリー（AI生成）';
+            summaryTitle.font = { size: 12, bold: true };
+            summaryTitle.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFE0E0E0' }
+            };
             currentRow++;
 
-            // サマリー内容を行に分割して出力
-            const summaryLines = group.summary.split('\n');
-            summaryLines.forEach(line => {
+            // 各プロジェクトのサマリーを出力
+            filteredSummary.forEach(group => {
+                // プロジェクトタイトル
                 sheet.mergeCells(`A${currentRow}:${lastCol}${currentRow}`);
-                const summaryCell = sheet.getCell(`A${currentRow}`);
-                summaryCell.value = line;
-                summaryCell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
-                summaryCell.border = borderStyle;
+                const groupTitle = sheet.getCell(`A${currentRow}`);
+                groupTitle.value = `【${group.category}】`;
+                groupTitle.font = { size: 11, bold: true };
+                groupTitle.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFF0F4FF' }
+                };
+                groupTitle.alignment = { vertical: 'middle', horizontal: 'left' };
+                groupTitle.border = borderStyle;
+                currentRow++;
+
+                // 作業内容サマリー
+                sheet.mergeCells(`A${currentRow}:${lastCol}${currentRow}`);
+                const workContentHeader = sheet.getCell(`A${currentRow}`);
+                workContentHeader.value = `📝 作業内容サマリー（${group.workContentCount}件）`;
+                workContentHeader.font = { size: 10, bold: true };
+                workContentHeader.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFF8F9FA' }
+                };
+                workContentHeader.alignment = { vertical: 'middle', horizontal: 'left' };
+                workContentHeader.border = borderStyle;
+                currentRow++;
+
+                const workContentLines = group.workContentSummary.split('\n');
+                workContentLines.forEach(line => {
+                    sheet.mergeCells(`A${currentRow}:${lastCol}${currentRow}`);
+                    const summaryCell = sheet.getCell(`A${currentRow}`);
+                    summaryCell.value = line;
+                    summaryCell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+                    summaryCell.border = borderStyle;
+                    currentRow++;
+                });
+
+                // 備考サマリー
+                sheet.mergeCells(`A${currentRow}:${lastCol}${currentRow}`);
+                const remarksHeader = sheet.getCell(`A${currentRow}`);
+                remarksHeader.value = `💬 備考サマリー（${group.remarksCount}件）`;
+                remarksHeader.font = { size: 10, bold: true };
+                remarksHeader.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFF8F9FA' }
+                };
+                remarksHeader.alignment = { vertical: 'middle', horizontal: 'left' };
+                remarksHeader.border = borderStyle;
+                currentRow++;
+
+                const remarksLines = group.remarksSummary.split('\n');
+                remarksLines.forEach(line => {
+                    sheet.mergeCells(`A${currentRow}:${lastCol}${currentRow}`);
+                    const summaryCell = sheet.getCell(`A${currentRow}`);
+                    summaryCell.value = line;
+                    summaryCell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+                    summaryCell.border = borderStyle;
+                    currentRow++;
+                });
+
+                // プロジェクト間に空行
                 currentRow++;
             });
 
-            // グループ間に空行
+            // サマリー列の幅を広く
+            sheet.getColumn(1).width = 80;
+        }
+    }
+}
+
+// 詳細データをExcelにエクスポート（名前別、日付順）
+function exportDetailData(workbook, detailData, params, borderStyle) {
+    const sheet = workbook.addWorksheet('詳細データ');
+
+    let currentRow = 1;
+
+    // タイトル行
+    sheet.mergeCells('A1:F1');
+    const titleCell = sheet.getCell('A1');
+    titleCell.value = '詳細データ（名前別）';
+    titleCell.font = { size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF667eea' }
+    };
+    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    sheet.getRow(1).height = 25;
+    currentRow++;
+
+    // 集計期間
+    let periodText = '';
+    if (params.period.type === 'day') {
+        periodText = `対象日: ${params.period.value}`;
+    } else if (params.period.type === 'week') {
+        const weekInfo = getWeekInfo(params.period.value);
+        periodText = `対象週: ${params.period.value}（${weekInfo.month}月${weekInfo.weekOfMonth}週目）`;
+    } else if (params.period.type === 'month') {
+        periodText = `対象月: ${params.period.value}`;
+    } else {
+        periodText = '全期間';
+    }
+    sheet.mergeCells(`A${currentRow}:F${currentRow}`);
+    const periodCell = sheet.getCell(`A${currentRow}`);
+    periodCell.value = periodText;
+    periodCell.alignment = { vertical: 'middle', horizontal: 'left' };
+    currentRow += 2;
+
+    // 名前でグループ化
+    const dataByName = {};
+    detailData.forEach(row => {
+        const name = row.name;
+        if (!dataByName[name]) {
+            dataByName[name] = [];
+        }
+        dataByName[name].push(row);
+    });
+
+    // 名前でソート
+    const sortedNames = Object.keys(dataByName).sort();
+
+    // 各名前ごとにデータを出力
+    sortedNames.forEach(name => {
+        // 日付でソート（昇順）
+        const rows = dataByName[name].sort((a, b) => {
+            const dateA = new Date(a.date);
+            const dateB = new Date(b.date);
+            return dateA - dateB;
+        });
+
+        // 名前のセクションタイトル
+        sheet.mergeCells(`A${currentRow}:F${currentRow}`);
+        const nameCell = sheet.getCell(`A${currentRow}`);
+        nameCell.value = name;
+        nameCell.font = { size: 12, bold: true };
+        nameCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFE0E0E0' }
+        };
+        nameCell.alignment = { vertical: 'middle', horizontal: 'left' };
+        sheet.getRow(currentRow).height = 20;
+        currentRow++;
+
+        // ヘッダー行
+        const headerRow = sheet.getRow(currentRow);
+        headerRow.values = ['日付', '分類', 'タスク名', '作業内容', '備考', '作業時間'];
+        headerRow.height = 25;
+        headerRow.eachCell((cell, colNumber) => {
+            cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FF764ba2' }
+            };
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            cell.border = borderStyle;
+        });
+        currentRow++;
+
+        // データ行
+        rows.forEach((row, index) => {
+            const displayDate = formatDateToJapanese(new Date(row.date));
+            const dataRow = sheet.getRow(currentRow);
+
+            dataRow.values = [
+                displayDate,
+                row.category,
+                row.taskName,
+                row.workContent,
+                row.remarks || '',
+                `${row.workHours}h`
+            ];
+
+            dataRow.eachCell((cell, colNumber) => {
+                cell.border = borderStyle;
+                cell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+
+                // 交互に背景色を設定
+                if (index % 2 === 0) {
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFF8F9FA' }
+                    };
+                }
+            });
+
+            sheet.getRow(currentRow).height = 20;
             currentRow++;
         });
 
-        // サマリー列の幅を広く
-        sheet.getColumn(1).width = 80;
+        // 合計行
+        const totalHours = rows.reduce((sum, row) => sum + parseFloat(row.workHours || 0), 0);
+        const totalRow = sheet.getRow(currentRow);
+        totalRow.values = ['', '', '', '', '合計', `${totalHours.toFixed(1)}h`];
+        totalRow.height = 25;
+        totalRow.eachCell((cell, colNumber) => {
+            cell.font = { bold: true };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFFFEAA7' }
+            };
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            cell.border = borderStyle;
+        });
+        currentRow += 2; // 名前グループ間に空行
+    });
+
+    // 列幅調整
+    sheet.getColumn(1).width = 15;  // 日付
+    sheet.getColumn(2).width = 15;  // 分類
+    sheet.getColumn(3).width = 20;  // タスク名
+    sheet.getColumn(4).width = 40;  // 作業内容
+    sheet.getColumn(5).width = 30;  // 備考
+    sheet.getColumn(6).width = 12;  // 作業時間
+}
+
+// Excel出力ボタン押下時の処理
+async function handleExcelExport() {
+    if (!currentResults || !currentDetailData || !currentSearchParams) {
+        alert('エクスポートするデータがありません');
+        return;
+    }
+
+    try {
+        await autoExport(currentSearchParams, currentResults, currentRemarksSummary);
+    } catch (error) {
+        console.error('Excel出力エラー:', error);
+        alert('Excel出力に失敗しました: ' + error.message);
+    }
+}
+
+// 備考サマリーの折りたたみ/展開
+function toggleRemarksSummary(index) {
+    const summary = document.getElementById(`remarks-summary-${index}`);
+    const icon = document.getElementById(`toggle-icon-${index}`);
+    const title = icon.parentElement;
+
+    if (summary.classList.contains('collapsed')) {
+        // 展開
+        summary.classList.remove('collapsed');
+        summary.classList.add('expanded');
+        title.classList.add('expanded');
+        icon.textContent = '▼';
+    } else {
+        // 折りたたみ
+        summary.classList.remove('expanded');
+        summary.classList.add('collapsed');
+        title.classList.remove('expanded');
+        icon.textContent = '▶';
     }
 }
 
@@ -905,6 +1361,11 @@ function handleReset() {
 
     currentResults = null;
     currentDetailData = null;
+    currentSearchParams = null;
+    currentRemarksSummary = null;
+
+    // Excel出力ボタンを非表示
+    document.getElementById('btn-export-excel').style.display = 'none';
 
     setTimeout(setInitialValues, 0);
 }

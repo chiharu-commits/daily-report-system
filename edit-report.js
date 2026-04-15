@@ -5,8 +5,35 @@ let allReportsData = []; // 検索結果を保持
 let currentEditIndex = null; // 編集中のデータインデックス
 let currentDeleteIndex = null; // 削除対象のデータインデックス
 
+// GASから設定を読み込む
+async function loadConfigFromGAS() {
+  try {
+    const scriptUrl = getScriptUrl();
+    // キャッシュバスターを追加してブラウザキャッシュを回避
+    const timestamp = new Date().getTime();
+    const url = `${scriptUrl}?action=getConfig&_=${timestamp}`;
+    const response = await fetch(url, {
+      cache: 'no-store' // キャッシュを無効化
+    });
+    const result = await response.json();
+
+    if (result.status === 'success') {
+      // CONFIG変数を上書き
+      CONFIG.names = result.data.names;
+      CONFIG.categories = result.data.categories;
+      CONFIG.taskNames = result.data.taskNames;
+      console.log('✅ GASから設定を読み込みました:', result.data);
+    } else {
+      console.warn('⚠️ GAS設定読み込み失敗、config.jsを使用します:', result.message);
+    }
+  } catch (error) {
+    console.warn('⚠️ GAS設定読み込みエラー、config.jsを使用します:', error);
+  }
+}
+
 // 初期化
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadConfigFromGAS();
   initializeSelects();
   initializeEventListeners();
   setDefaultDates();
@@ -101,6 +128,10 @@ function initializeEventListeners() {
   document.getElementById('delete-modal').addEventListener('click', (e) => {
     if (e.target.id === 'delete-modal') closeDeleteModal();
   });
+
+  // 休みチェックボックスのイベントリスナー
+  document.getElementById('add-is-holiday').addEventListener('change', toggleAddHolidayMode);
+  document.getElementById('edit-is-holiday').addEventListener('change', toggleEditHolidayMode);
 }
 
 // デフォルト日付を設定（今月）
@@ -286,7 +317,7 @@ function displayResults(data) {
       <thead>
         <tr>
           <th>日付</th>
-          <th>分類</th>
+          <th>プロジェクト</th>
           <th>タスク名</th>
           <th>作業内容</th>
           <th>時間</th>
@@ -332,6 +363,9 @@ function openAddModal() {
   const today = new Date();
   document.getElementById('add-date').valueAsDate = today;
 
+  // 休みチェックボックスをリセット
+  document.getElementById('add-is-holiday').checked = false;
+
   // モーダルを表示
   document.getElementById('add-modal').classList.add('show');
 }
@@ -339,6 +373,45 @@ function openAddModal() {
 // 新規登録モーダルを閉じる
 function closeAddModal() {
   document.getElementById('add-modal').classList.remove('show');
+}
+
+// 新規登録モーダルの休みモード切り替え
+function toggleAddHolidayMode() {
+  const isHoliday = document.getElementById('add-is-holiday').checked;
+  const categorySelect = document.getElementById('add-category');
+  const taskNameSelect = document.getElementById('add-task-name');
+  const workContentTextarea = document.getElementById('add-work-content');
+  const remarksTextarea = document.getElementById('add-remarks');
+  const workHoursInput = document.getElementById('add-work-hours');
+
+  if (isHoliday) {
+    // 休みモード：デフォルト値を設定して無効化
+    categorySelect.value = '休み';
+    taskNameSelect.value = '休暇';
+    workContentTextarea.value = '休み';
+    remarksTextarea.value = '';
+    workHoursInput.value = '0';
+
+    // すべて無効化（備考も含む）
+    categorySelect.disabled = true;
+    taskNameSelect.disabled = true;
+    workContentTextarea.disabled = true;
+    remarksTextarea.disabled = true;
+    workHoursInput.disabled = true;
+  } else {
+    // 通常モード：有効化してクリア
+    categorySelect.disabled = false;
+    taskNameSelect.disabled = false;
+    workContentTextarea.disabled = false;
+    remarksTextarea.disabled = false;
+    workHoursInput.disabled = false;
+
+    // 値をクリア
+    if (categorySelect.value === '休み') categorySelect.value = '';
+    if (taskNameSelect.value === '休暇') taskNameSelect.value = '';
+    if (workContentTextarea.value === '休み') workContentTextarea.value = '';
+    if (workHoursInput.value === '0') workHoursInput.value = '';
+  }
 }
 
 // 日報を登録
@@ -399,11 +472,31 @@ function openEditModal(index) {
   document.getElementById('edit-row-index').value = index;
   document.getElementById('edit-name').value = data.name;
   document.getElementById('edit-date').value = formatDateToYYYYMMDD(new Date(data.date));
+
+  // 休みチェックボックスの設定（分類が「休み」の場合はチェック）
+  const isHoliday = data.category === '休み';
+  document.getElementById('edit-is-holiday').checked = isHoliday;
+
   document.getElementById('edit-category').value = data.category;
   document.getElementById('edit-task-name').value = data.taskName;
   document.getElementById('edit-work-content').value = data.workContent;
   document.getElementById('edit-remarks').value = data.remarks || '';
   document.getElementById('edit-work-hours').value = data.workHours;
+
+  // 休みモードの場合はフィールドを無効化
+  if (isHoliday) {
+    document.getElementById('edit-category').disabled = true;
+    document.getElementById('edit-task-name').disabled = true;
+    document.getElementById('edit-work-content').disabled = true;
+    document.getElementById('edit-remarks').disabled = true;
+    document.getElementById('edit-work-hours').disabled = true;
+  } else {
+    document.getElementById('edit-category').disabled = false;
+    document.getElementById('edit-task-name').disabled = false;
+    document.getElementById('edit-work-content').disabled = false;
+    document.getElementById('edit-remarks').disabled = false;
+    document.getElementById('edit-work-hours').disabled = false;
+  }
 
   // モーダルを表示
   document.getElementById('edit-modal').classList.add('show');
@@ -413,6 +506,45 @@ function openEditModal(index) {
 function closeEditModal() {
   document.getElementById('edit-modal').classList.remove('show');
   currentEditIndex = null;
+}
+
+// 編集モーダルの休みモード切り替え
+function toggleEditHolidayMode() {
+  const isHoliday = document.getElementById('edit-is-holiday').checked;
+  const categorySelect = document.getElementById('edit-category');
+  const taskNameSelect = document.getElementById('edit-task-name');
+  const workContentTextarea = document.getElementById('edit-work-content');
+  const remarksTextarea = document.getElementById('edit-remarks');
+  const workHoursInput = document.getElementById('edit-work-hours');
+
+  if (isHoliday) {
+    // 休みモード：デフォルト値を設定して無効化
+    categorySelect.value = '休み';
+    taskNameSelect.value = '休暇';
+    workContentTextarea.value = '休み';
+    remarksTextarea.value = '';
+    workHoursInput.value = '0';
+
+    // すべて無効化（備考も含む）
+    categorySelect.disabled = true;
+    taskNameSelect.disabled = true;
+    workContentTextarea.disabled = true;
+    remarksTextarea.disabled = true;
+    workHoursInput.disabled = true;
+  } else {
+    // 通常モード：有効化してクリア
+    categorySelect.disabled = false;
+    taskNameSelect.disabled = false;
+    workContentTextarea.disabled = false;
+    remarksTextarea.disabled = false;
+    workHoursInput.disabled = false;
+
+    // 値をクリア
+    if (categorySelect.value === '休み') categorySelect.value = '';
+    if (taskNameSelect.value === '休暇') taskNameSelect.value = '';
+    if (workContentTextarea.value === '休み') workContentTextarea.value = '';
+    if (workHoursInput.value === '0') workHoursInput.value = '';
+  }
 }
 
 // 日報を更新
@@ -477,7 +609,7 @@ function openDeleteModal(index) {
   const deleteInfo = document.getElementById('delete-info');
   deleteInfo.innerHTML = `
     <strong>日付:</strong> ${displayDate}<br>
-    <strong>分類:</strong> ${data.category}<br>
+    <strong>プロジェクト:</strong> ${data.category}<br>
     <strong>タスク名:</strong> ${data.taskName}<br>
     <strong>作業内容:</strong> ${data.workContent}<br>
     <strong>時間:</strong> ${data.workHours}時間
@@ -644,7 +776,7 @@ async function exportToExcel() {
 
     // ヘッダー行
     const headerRow = worksheet.getRow(4);
-    const headers = ['日付', '分類', 'タスク名', '作業内容', '備考', '時間'];
+    const headers = ['日付', 'プロジェクト', 'タスク名', '作業内容', '備考', '時間'];
     headerRow.values = headers;
     headerRow.height = 25;
 
@@ -662,7 +794,7 @@ async function exportToExcel() {
 
     // 列幅の設定
     worksheet.getColumn(1).width = 12;  // 日付
-    worksheet.getColumn(2).width = 15;  // 分類
+    worksheet.getColumn(2).width = 15;  // プロジェクト
     worksheet.getColumn(3).width = 20;  // タスク名
     worksheet.getColumn(4).width = 40;  // 作業内容
     worksheet.getColumn(5).width = 30;  // 備考

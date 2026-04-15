@@ -1,5 +1,5 @@
-// Google Apps ScriptのウェブアプリURL（デプロイ後に設定してください）
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyf8fJx5znNDEFfXxpaZE75HiWs8QSM3BKuZuPu_iJ3UWNwtjqrMpSzxAHg2sAXBLfSyA/exec';
+// Google Apps ScriptのウェブアプリURL（config.jsから取得）
+const GOOGLE_SCRIPT_URL = getScriptUrl();
 
 // タスクカウンター
 let taskCounter = 1;
@@ -104,7 +104,7 @@ function addTaskSection() {
         </div>
 
         <div class="form-group">
-            <label for="category-${taskCounter}">分類 <span class="required">*</span></label>
+            <label for="category-${taskCounter}">プロジェクト <span class="required">*</span></label>
             <select id="category-${taskCounter}" name="category" required>
                 <option value="">選択してください</option>
             </select>
@@ -192,6 +192,9 @@ function resetForm() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('date').value = today;
 
+    // 休みチェックボックスをリセット
+    document.getElementById('isHoliday').checked = false;
+
     // すべてのタスクセクションを削除（最初の1つを除く）
     const taskSections = document.querySelectorAll('.task-section');
     taskSections.forEach((section, index) => {
@@ -207,15 +210,50 @@ function resetForm() {
     document.getElementById('remarks-0').value = '';
     document.getElementById('workHours-0').value = '';
 
+    // タスクセクションを有効化
+    document.getElementById('category-0').disabled = false;
+    document.getElementById('taskName-0').disabled = false;
+    document.getElementById('workContent-0').disabled = false;
+    document.getElementById('workHours-0').disabled = false;
+
+    // タスク追加ボタンを有効化
+    document.getElementById('addTaskBtn').disabled = false;
+
     // カウンターをリセット
     taskCounter = 1;
     updateTaskNumbers();
 }
 
-// config.jsを読み込んでセレクトボックスを生成
-function loadConfig() {
+// GASから設定を読み込む
+async function loadConfigFromGAS() {
     try {
-        // CONFIGオブジェクト（config.jsから読み込み）を使用
+        // キャッシュバスターを追加してブラウザキャッシュを回避
+        const timestamp = new Date().getTime();
+        const url = `${GOOGLE_SCRIPT_URL}?action=getConfig&_=${timestamp}`;
+        const response = await fetch(url, {
+            cache: 'no-store' // キャッシュを無効化
+        });
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            // CONFIG変数を上書き
+            CONFIG.names = result.data.names;
+            CONFIG.categories = result.data.categories;
+            CONFIG.taskNames = result.data.taskNames;
+            console.log('✅ GASから設定を読み込みました:', result.data);
+        } else {
+            console.warn('⚠️ GAS設定読み込み失敗、config.jsを使用します:', result.message);
+        }
+    } catch (error) {
+        console.warn('⚠️ GAS設定読み込みエラー、config.jsを使用します:', error);
+    }
+}
+
+// config.jsを読み込んでセレクトボックスを生成
+async function loadConfig() {
+    try {
+        // まずGASから設定を読み込む
+        await loadConfigFromGAS();
 
         // 名前のオプションを生成
         const nameSelect = document.getElementById('name');
@@ -235,6 +273,75 @@ function loadConfig() {
     }
 }
 
+// 休みチェックボックスの制御
+function toggleHolidayMode() {
+    const isHoliday = document.getElementById('isHoliday').checked;
+    const taskSections = document.querySelectorAll('.task-section');
+    const addTaskBtn = document.getElementById('addTaskBtn');
+
+    if (isHoliday) {
+        // 休みモード：タスクセクションを無効化
+        taskSections.forEach((section, index) => {
+            const categorySelect = document.getElementById(`category-${index}`);
+            const taskNameSelect = document.getElementById(`taskName-${index}`);
+            const workContentTextarea = document.getElementById(`workContent-${index}`);
+            const remarksTextarea = document.getElementById(`remarks-${index}`);
+            const workHoursInput = document.getElementById(`workHours-${index}`);
+
+            // デフォルト値を設定
+            categorySelect.value = '休み';
+            taskNameSelect.value = '休暇';
+            workContentTextarea.value = '休み';
+            remarksTextarea.value = '';
+            workHoursInput.value = '0';
+
+            // すべて無効化（備考も含む）
+            categorySelect.disabled = true;
+            taskNameSelect.disabled = true;
+            workContentTextarea.disabled = true;
+            remarksTextarea.disabled = true;
+            workHoursInput.disabled = true;
+        });
+
+        // タスク追加ボタンを無効化
+        addTaskBtn.disabled = true;
+
+        // 複数タスクがある場合は削除ボタンを無効化
+        const removeButtons = document.querySelectorAll('.remove-task');
+        removeButtons.forEach(btn => btn.disabled = true);
+
+    } else {
+        // 通常モード：タスクセクションを有効化
+        taskSections.forEach((section, index) => {
+            const categorySelect = document.getElementById(`category-${index}`);
+            const taskNameSelect = document.getElementById(`taskName-${index}`);
+            const workContentTextarea = document.getElementById(`workContent-${index}`);
+            const remarksTextarea = document.getElementById(`remarks-${index}`);
+            const workHoursInput = document.getElementById(`workHours-${index}`);
+
+            // 有効化
+            categorySelect.disabled = false;
+            taskNameSelect.disabled = false;
+            workContentTextarea.disabled = false;
+            remarksTextarea.disabled = false;
+            workHoursInput.disabled = false;
+
+            // 値をクリア
+            if (categorySelect.value === '休み') categorySelect.value = '';
+            if (taskNameSelect.value === '休暇') taskNameSelect.value = '';
+            if (workContentTextarea.value === '休み') workContentTextarea.value = '';
+            if (workHoursInput.value === '0') workHoursInput.value = '';
+        });
+
+        // タスク追加ボタンを有効化
+        addTaskBtn.disabled = false;
+
+        // 削除ボタンを有効化
+        const removeButtons = document.querySelectorAll('.remove-task');
+        removeButtons.forEach(btn => btn.disabled = false);
+    }
+}
+
 // ページ読み込み時の初期化
 document.addEventListener('DOMContentLoaded', function() {
     // config.jsを読み込み
@@ -244,6 +351,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const dateInput = document.getElementById('date');
     const today = new Date().toISOString().split('T')[0];
     dateInput.value = today;
+
+    // 休みチェックボックスのイベントリスナー
+    document.getElementById('isHoliday').addEventListener('change', toggleHolidayMode);
 
     // タスク追加ボタンのイベントリスナー
     document.getElementById('addTaskBtn').addEventListener('click', addTaskSection);

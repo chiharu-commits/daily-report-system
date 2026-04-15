@@ -16,6 +16,7 @@
         <a href="index.html" class="nav-link">日報入力</a>
         <a href="report-view.html" class="nav-link">日報閲覧</a>
         <a href="edit-report.html" class="nav-link active">日報修正</a>
+        <a href="config-manager.html" class="nav-link">設定管理</a>
       </nav>
     </header>
 
@@ -115,7 +116,14 @@
             </div>
 
             <div class="form-group">
-              <label for="add-category">分類 <span class="required">*</span></label>
+              <label class="checkbox-label-holiday">
+                <input type="checkbox" id="add-is-holiday">
+                <span>休み</span>
+              </label>
+            </div>
+
+            <div class="form-group">
+              <label for="add-category">プロジェクト <span class="required">*</span></label>
               <select id="add-category" required>
                 <option value="">選択してください</option>
               </select>
@@ -176,7 +184,14 @@
             </div>
 
             <div class="form-group">
-              <label for="edit-category">分類 <span class="required">*</span></label>
+              <label class="checkbox-label-holiday">
+                <input type="checkbox" id="edit-is-holiday">
+                <span>休み</span>
+              </label>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-category">プロジェクト <span class="required">*</span></label>
               <select id="edit-category" required>
                 <option value="">選択してください</option>
               </select>

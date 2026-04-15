@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>設定管理</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="config-manager.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>設定管理</h1>
+      <nav class="header-nav">
+        <a href="index.html" class="nav-link">日報入力</a>
+        <a href="report-view.html" class="nav-link">日報閲覧</a>
+        <a href="edit-report.html" class="nav-link">日報修正</a>
+        <a href="config-manager.html" class="nav-link active">設定管理</a>
+      </nav>
+    </header>
+
+    <main>
+      <!-- 名前管理 -->
+      <section class="config-section" data-section="name">
+        <h2 class="section-title" data-toggle="name">
+          <span class="toggle-icon">▼</span>
+          名前 <span id="name-count" class="item-count"></span>
+        </h2>
+        <div class="section-content">
+          <div class="input-group">
+            <input type="text" id="new-name" placeholder="新しい名前を入力" class="input-field">
+            <button type="button" id="btn-add-name" class="btn btn-add">追加</button>
+          </div>
+          <div class="search-group">
+            <input type="text" id="search-name" placeholder="🔍 名前を検索..." class="search-field">
+          </div>
+          <div class="list-container">
+            <ul id="name-list" class="item-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- プロジェクト管理 -->
+      <section class="config-section" data-section="category">
+        <h2 class="section-title" data-toggle="category">
+          <span class="toggle-icon">▼</span>
+          プロジェクト <span id="category-count" class="item-count"></span>
+        </h2>
+        <div class="section-content">
+          <div class="input-group">
+            <input type="text" id="new-category" placeholder="新しいプロジェクトを入力" class="input-field">
+            <button type="button" id="btn-add-category" class="btn btn-add">追加</button>
+          </div>
+          <div class="search-group">
+            <input type="text" id="search-category" placeholder="🔍 プロジェクトを検索..." class="search-field">
+          </div>
+          <div class="list-container">
+            <ul id="category-list" class="item-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- タスク名管理 -->
+      <section class="config-section" data-section="taskName">
+        <h2 class="section-title" data-toggle="taskName">
+          <span class="toggle-icon">▼</span>
+          タスク名 <span id="task-name-count" class="item-count"></span>
+        </h2>
+        <div class="section-content">
+          <div class="input-group">
+            <input type="text" id="new-task-name" placeholder="新しいタスク名を入力" class="input-field">
+            <button type="button" id="btn-add-task-name" class="btn btn-add">追加</button>
+          </div>
+          <div class="search-group">
+            <input type="text" id="search-task-name" placeholder="🔍 タスク名を検索..." class="search-field">
+          </div>
+          <div class="list-container">
+            <ul id="task-name-list" class="item-list"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 保存ボタン -->
+      <div class="save-section">
+        <button type="button" id="btn-save" class="btn btn-primary btn-save">変更を保存</button>
+      </div>
+    </main>
+
+    <!-- フローティング保存ボタン -->
+    <button type="button" id="btn-floating-save" class="btn-floating-save" title="変更を保存">
+      <span class="save-icon">💾</span>
+      <span class="save-text">保存</span>
+    </button>
+
+    <footer>
+      <p>&copy; 2026 日報入力システム</p>
+    </footer>
+  </div>
+
+  <!-- ローディング -->
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    <p>処理中...</p>
+  </div>
+
+  <!-- トースト通知 -->
+  <div id="toast" class="toast"></div>
+
+  <script src="config.js"></script>
+  <script src="config-manager.js"></script>
+</body>
+</html>

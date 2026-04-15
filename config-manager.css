@@ -1,0 +1,427 @@
+/* 設定管理画面専用スタイル */
+
+/* セクション */
+.config-section {
+  background: #f8f9fa;
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+  margin-bottom: 32px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #667eea;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.3s ease;
+}
+
+.section-title:hover {
+  color: #667eea;
+}
+
+.toggle-icon {
+  font-size: 14px;
+  transition: transform 0.3s ease;
+  display: inline-block;
+  width: 20px;
+}
+
+.config-section.collapsed .toggle-icon {
+  transform: rotate(-90deg);
+}
+
+.section-content {
+  max-height: 2000px;
+  overflow: hidden;
+  transition: max-height 0.4s ease, opacity 0.3s ease;
+  opacity: 1;
+}
+
+.config-section.collapsed .section-content {
+  max-height: 0;
+  opacity: 0;
+  margin-top: -16px;
+}
+
+.item-count {
+  font-size: 14px;
+  color: #666;
+  font-weight: 400;
+  background: #e8ecff;
+  padding: 2px 12px;
+  border-radius: 12px;
+}
+
+/* 入力グループ */
+.input-group {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* 検索グループ */
+.search-group {
+  margin-bottom: 12px;
+}
+
+.search-field {
+  width: 100%;
+  padding: 10px 16px;
+  font-size: 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.search-field:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* リストコンテナ（スクロール可能） */
+.list-container {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: white;
+  padding: 8px;
+}
+
+.list-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.list-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.list-container::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.list-container::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+.input-field {
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.btn-add {
+  background: #28a745;
+  color: white;
+  padding: 12px 24px;
+  white-space: nowrap;
+}
+
+.btn-add:hover {
+  background: #218838;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+}
+
+/* アイテムリスト */
+.item-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.item-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
+}
+
+.item-list li:hover {
+  background: #f0f4ff;
+  border-color: #667eea;
+}
+
+.item-list li:last-child {
+  margin-bottom: 0;
+}
+
+.item-list li.hidden {
+  display: none;
+}
+
+.item-list .no-results {
+  text-align: center;
+  padding: 32px 16px;
+  color: #999;
+  font-size: 14px;
+  background: transparent;
+  border: none;
+}
+
+.item-list .no-results:hover {
+  background: transparent;
+  border: none;
+}
+
+.item-text {
+  font-size: 16px;
+  color: #333;
+  flex: 1;
+}
+
+.btn-delete {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.btn-delete:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+}
+
+/* 保存セクション */
+.save-section {
+  display: flex;
+  justify-content: center;
+  margin-top: 40px;
+  padding: 24px;
+}
+
+.btn-save {
+  min-width: 300px;
+  padding: 16px 48px;
+  font-size: 18px;
+}
+
+/* ローディング */
+.loading {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.loading.show {
+  display: flex;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading p {
+  margin-top: 15px;
+  color: #667eea;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* トースト */
+.toast {
+  position: fixed;
+  top: 30px;
+  right: 30px;
+  background: #333;
+  color: white;
+  padding: 15px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  display: none;
+  z-index: 3000;
+  animation: slideInDown 0.3s;
+  min-width: 250px;
+  max-width: 400px;
+}
+
+.toast.show {
+  display: block;
+}
+
+.toast.success {
+  background: #28a745;
+}
+
+.toast.error {
+  background: #dc3545;
+}
+
+.toast.warning {
+  background: #ffc107;
+  color: #333;
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* フローティング保存ボタン */
+.btn-floating-save {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  padding: 16px 28px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.3s ease;
+  z-index: 1000;
+  animation: fadeInUp 0.5s ease;
+}
+
+.btn-floating-save:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(102, 126, 234, 0.6);
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.btn-floating-save:active {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+}
+
+.save-icon {
+  font-size: 20px;
+  display: inline-block;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.save-text {
+  font-size: 16px;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+/* レスポンシブ */
+@media (max-width: 768px) {
+  .config-section {
+    padding: 20px;
+  }
+
+  .input-group {
+    flex-direction: column;
+  }
+
+  .btn-add {
+    width: 100%;
+  }
+
+  .item-list li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .btn-delete {
+    width: 100%;
+  }
+
+  .btn-save {
+    min-width: 100%;
+  }
+
+  .save-section {
+    padding: 16px;
+  }
+
+  /* モバイルでのフローティングボタン */
+  .btn-floating-save {
+    bottom: 20px;
+    right: 20px;
+    padding: 14px 24px;
+    font-size: 14px;
+  }
+
+  .save-icon {
+    font-size: 18px;
+  }
+
+  .save-text {
+    font-size: 14px;
+  }
+}

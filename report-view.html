@@ -49,31 +49,29 @@
 
                     <!-- 期間単位の選択 -->
                     <div class="form-group">
-                        <label for="periodType">期間単位（オプション）</label>
+                        <label for="periodType">期間単位</label>
                         <select id="periodType" name="periodType">
-                            <option value="">全期間</option>
+                            <option value="year">年</option>
                             <option value="month">月単位</option>
                             <option value="week">週単位</option>
                             <option value="day">日単位</option>
                         </select>
                     </div>
 
-                    <!-- 月選択 -->
-                    <div class="form-group period-group" id="monthGroup" style="display: none;">
-                        <label for="monthPicker">対象月</label>
-                        <input type="month" id="monthPicker" name="monthPicker">
-                    </div>
-
-                    <!-- 週選択 -->
-                    <div class="form-group period-group" id="weekGroup" style="display: none;">
-                        <label for="weekPicker">対象週</label>
-                        <input type="week" id="weekPicker" name="weekPicker">
-                    </div>
-
-                    <!-- 日選択 -->
-                    <div class="form-group period-group" id="dayGroup" style="display: none;">
-                        <label for="dayPicker">対象日</label>
-                        <input type="date" id="dayPicker" name="dayPicker">
+                    <!-- From To カレンダー入力 -->
+                    <div class="form-group">
+                        <label>期間指定</label>
+                        <div class="date-range">
+                            <div class="date-input-wrapper">
+                                <label for="fromDate">From</label>
+                                <input type="date" id="fromDate" name="fromDate" required>
+                            </div>
+                            <span class="date-separator">〜</span>
+                            <div class="date-input-wrapper">
+                                <label for="toDate">To</label>
+                                <input type="date" id="toDate" name="toDate" required>
+                            </div>
+                        </div>
                     </div>
                 </section>
 

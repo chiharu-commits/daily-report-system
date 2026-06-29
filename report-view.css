@@ -142,6 +142,50 @@ select[multiple] option:hover {
     }
 }
 
+/* From To 横並び */
+.date-range {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.date-input-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.date-input-wrapper label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #555;
+}
+
+.date-input-wrapper input[type="date"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.date-input-wrapper input[type="date"]:focus {
+    border-color: #667eea;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.date-separator {
+    font-size: 18px;
+    font-weight: bold;
+    color: #666;
+    padding-bottom: 10px;
+    flex-shrink: 0;
+}
+
 /* 作業時間の範囲指定 */
 .hours-range {
     margin-top: 16px;
@@ -455,6 +499,17 @@ select[multiple] option:hover {
 
     .range-separator {
         display: none;
+    }
+
+    /* From To を縦並びに */
+    .date-range {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .date-separator {
+        text-align: center;
+        padding: 8px 0;
     }
 
     .summary-table th,

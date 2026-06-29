@@ -54,6 +54,9 @@ document.getElementById('dailyReportForm').addEventListener('submit', async func
         // 成功メッセージ
         showMessage(`日報を登録しました！（${tasks.length}件）`, 'success');
 
+        // 未入力バナーをクリア
+        removeMissingDatesBanner();
+
         // フォームのクリア
         resetForm();
 
@@ -295,11 +298,10 @@ function toggleHolidayMode() {
             remarksTextarea.value = '';
             workHoursInput.value = '0';
 
-            // すべて無効化（備考も含む）
+            // 備考以外を無効化
             categorySelect.disabled = true;
             taskNameSelect.disabled = true;
             workContentTextarea.disabled = true;
-            remarksTextarea.disabled = true;
             workHoursInput.disabled = true;
         });
 
@@ -342,6 +344,115 @@ function toggleHolidayMode() {
     }
 }
 
+// 対象期間（今月1日〜昨日）の平日一覧を返す
+function getWeekdaysInRange() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+    const days = [];
+
+    for (let d = new Date(start); d < today; d.setDate(d.getDate() + 1)) {
+        const dow = d.getDay();
+        if (dow !== 0 && dow !== 6) {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            days.push(`${y}-${m}-${day}`);
+        }
+    }
+    return days;
+}
+
+// GASから担当者の提出済み日付を取得
+async function fetchSubmittedDates(name) {
+    try {
+        const timestamp = new Date().getTime();
+        const url = `${GOOGLE_SCRIPT_URL}?action=getSubmittedDates&name=${encodeURIComponent(name)}&_=${timestamp}`;
+        const response = await fetch(url, { cache: 'no-store' });
+        const result = await response.json();
+        if (result.status === 'success') {
+            return result.dates; // ['2026-06-02', '2026-06-03', ...]
+        }
+    } catch (e) {
+        console.warn('提出済み日付の取得に失敗しました:', e);
+    }
+    return null;
+}
+
+// 日付文字列を「6/25（水）」形式に変換
+function formatDateJP(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const month = d.getMonth() + 1;
+    const day = d.getDate();
+    const dow = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+    return `${month}/${day}（${dow}）`;
+}
+
+// 未入力バナーを表示
+function showMissingDatesBanner(missingDates) {
+    removeMissingDatesBanner();
+    if (missingDates.length === 0) return;
+
+    const banner = document.createElement('div');
+    banner.className = 'missing-dates-banner';
+    banner.id = 'missingDatesBanner';
+    banner.innerHTML = `
+        <span class="banner-icon">⚠️</span>
+        <div class="banner-body">
+            <div class="banner-title">未入力の日があります（今月分）</div>
+            <div class="banner-dates">${missingDates.map(formatDateJP).join('　')}</div>
+        </div>
+        <button class="banner-close" onclick="removeMissingDatesBanner()" title="閉じる">×</button>
+    `;
+
+    const form = document.getElementById('dailyReportForm');
+    form.parentNode.insertBefore(banner, form);
+}
+
+function removeMissingDatesBanner() {
+    const existing = document.getElementById('missingDatesBanner');
+    if (existing) existing.remove();
+}
+
+// 確認中バナーを表示
+function showLoadingBanner() {
+    removeMissingDatesBanner();
+    const banner = document.createElement('div');
+    banner.className = 'missing-dates-banner';
+    banner.id = 'missingDatesBanner';
+    banner.style.borderLeftColor = '#999';
+    banner.style.background = '#f5f5f5';
+    banner.innerHTML = `
+        <span class="banner-icon">🔍</span>
+        <div class="banner-body">
+            <div class="banner-title" style="color:#555">未入力日を確認中...</div>
+        </div>
+    `;
+    const form = document.getElementById('dailyReportForm');
+    form.parentNode.insertBefore(banner, form);
+}
+
+// 名前選択時に未入力日をチェック
+async function checkMissingDates(name) {
+    removeMissingDatesBanner();
+    if (!name) return;
+
+    showLoadingBanner();
+
+    const submittedDates = await fetchSubmittedDates(name);
+    if (submittedDates === null) {
+        removeMissingDatesBanner();
+        return;
+    }
+
+    const weekdays = getWeekdaysInRange();
+    const submittedSet = new Set(submittedDates);
+    const missing = weekdays.filter(d => !submittedSet.has(d));
+
+    showMissingDatesBanner(missing);
+}
+
 // ページ読み込み時の初期化
 document.addEventListener('DOMContentLoaded', function() {
     // config.jsを読み込み
@@ -357,4 +468,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // タスク追加ボタンのイベントリスナー
     document.getElementById('addTaskBtn').addEventListener('click', addTaskSection);
+
+    // 名前選択時に未入力日チェック
+    document.getElementById('name').addEventListener('change', function() {
+        checkMissingDates(this.value);
+    });
 });

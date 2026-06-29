@@ -86,6 +86,7 @@ async function loadConfig() {
 
 // 設定を画面に表示
 function displayConfig() {
+  sortWithReservedLast();
   // 名前リスト
   const nameList = document.getElementById('name-list');
   nameList.innerHTML = '';
@@ -140,6 +141,24 @@ function createListItem(text, type, index) {
   return li;
 }
 
+// 「休み」「休暇」を末尾に固定する整列処理
+function sortWithReservedLast() {
+  const categoryReserved = '休み';
+  const taskNameReserved = '休暇';
+
+  const ci = currentConfig.categories.indexOf(categoryReserved);
+  if (ci !== -1 && ci !== currentConfig.categories.length - 1) {
+    currentConfig.categories.splice(ci, 1);
+    currentConfig.categories.push(categoryReserved);
+  }
+
+  const ti = currentConfig.taskNames.indexOf(taskNameReserved);
+  if (ti !== -1 && ti !== currentConfig.taskNames.length - 1) {
+    currentConfig.taskNames.splice(ti, 1);
+    currentConfig.taskNames.push(taskNameReserved);
+  }
+}
+
 // アイテムを追加
 function addItem(type) {
   let inputId, arrayKey;
@@ -172,6 +191,7 @@ function addItem(type) {
   // 追加
   currentConfig[arrayKey].push(value);
   input.value = '';
+  sortWithReservedLast();
   displayConfig();
   showToast('追加しました（保存ボタンを押してください）', 'success');
 }
@@ -193,6 +213,7 @@ function deleteItem(type, index) {
 
   if (confirm(`「${itemName}」を削除してもよろしいですか？`)) {
     currentConfig[arrayKey].splice(index, 1);
+    sortWithReservedLast();
     displayConfig();
     showToast('削除しました（保存ボタンを押してください）', 'success');
   }

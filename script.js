@@ -349,7 +349,7 @@ function getWeekdaysInRange() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+    const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
     const days = [];
 
     for (let d = new Date(start); d < today; d.setDate(d.getDate() + 1)) {
@@ -394,13 +394,19 @@ function showMissingDatesBanner(missingDates) {
     removeMissingDatesBanner();
     if (missingDates.length === 0) return;
 
+    const thisMonth = new Date().getMonth();
+    const hasLastMonth = missingDates.some(d => new Date(d + 'T00:00:00').getMonth() !== thisMonth);
+    const hasThisMonth = missingDates.some(d => new Date(d + 'T00:00:00').getMonth() === thisMonth);
+    const label = hasLastMonth && hasThisMonth ? '先月分・今月分'
+                : hasLastMonth ? '先月分' : '今月分';
+
     const banner = document.createElement('div');
     banner.className = 'missing-dates-banner';
     banner.id = 'missingDatesBanner';
     banner.innerHTML = `
         <span class="banner-icon">⚠️</span>
         <div class="banner-body">
-            <div class="banner-title">未入力の日があります（今月分）</div>
+            <div class="banner-title">未入力の日があります（${label}）</div>
             <div class="banner-dates">${missingDates.map(formatDateJP).join('　')}</div>
         </div>
         <button class="banner-close" onclick="removeMissingDatesBanner()" title="閉じる">×</button>

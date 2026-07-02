@@ -54,11 +54,13 @@ document.getElementById('dailyReportForm').addEventListener('submit', async func
         // 成功メッセージ
         showMessage(`日報を登録しました！（${tasks.length}件）`, 'success');
 
-        // 未入力バナーをクリア
-        removeMissingDatesBanner();
-
-        // フォームのクリア
+        // フォームのクリア（名前は保持）
+        const currentName = name;
         resetForm();
+        document.getElementById('name').value = currentName;
+
+        // 未入力日を再チェック
+        checkMissingDates(currentName);
 
     } catch (error) {
         console.error('エラー:', error);

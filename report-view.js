@@ -1144,28 +1144,14 @@ function exportPivotTable(workbook, data, params, borderStyle, remarksSummary) {
     }
 }
 
-// 詳細データをExcelにエクスポート（名前別、日付順）
+// Excelシート名として使えない文字を除去し、31文字以内に切り詰める
+function sanitizeSheetName(name) {
+    return name.replace(/[\\\/\?\*\[\]:]/g, '_').substring(0, 31);
+}
+
+// 詳細データをExcelにエクスポート（名前ごとにシートを分けて出力、日付順）
 function exportDetailData(workbook, detailData, params, borderStyle) {
-    const sheet = workbook.addWorksheet('詳細データ');
-
-    let currentRow = 1;
-
-    // タイトル行
-    sheet.mergeCells('A1:F1');
-    const titleCell = sheet.getCell('A1');
-    titleCell.value = '詳細データ（名前別）';
-    titleCell.font = { size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
-    titleCell.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FF667eea' }
-    };
-    titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
-    sheet.getRow(1).height = 25;
-    currentRow++;
-
-    // 集計期間
-    let periodText = '';
+    // 集計期間テキストを作成
     let periodTypeText = '';
     if (params.period.type === 'year') {
         periodTypeText = '年';
@@ -1176,12 +1162,7 @@ function exportDetailData(workbook, detailData, params, borderStyle) {
     } else if (params.period.type === 'day') {
         periodTypeText = '日単位';
     }
-    periodText = `期間単位: ${periodTypeText} / 対象期間: ${params.period.fromDate} 〜 ${params.period.toDate}`;
-    sheet.mergeCells(`A${currentRow}:F${currentRow}`);
-    const periodCell = sheet.getCell(`A${currentRow}`);
-    periodCell.value = periodText;
-    periodCell.alignment = { vertical: 'middle', horizontal: 'left' };
-    currentRow += 2;
+    const periodText = `期間単位: ${periodTypeText} / 対象期間: ${params.period.fromDate} 〜 ${params.period.toDate}`;
 
     // 名前でグループ化
     const dataByName = {};
@@ -1196,28 +1177,39 @@ function exportDetailData(workbook, detailData, params, borderStyle) {
     // 名前でソート
     const sortedNames = Object.keys(dataByName).sort();
 
-    // 各名前ごとにデータを出力
+    // 名前ごとにシートを作成してデータを出力
     sortedNames.forEach(name => {
+        const sheet = workbook.addWorksheet(sanitizeSheetName(name));
+
+        let currentRow = 1;
+
+        // タイトル行
+        sheet.mergeCells('A1:F1');
+        const titleCell = sheet.getCell('A1');
+        titleCell.value = `詳細データ（${name}）`;
+        titleCell.font = { size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+        titleCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF667eea' }
+        };
+        titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+        sheet.getRow(1).height = 25;
+        currentRow++;
+
+        // 集計期間
+        sheet.mergeCells(`A${currentRow}:F${currentRow}`);
+        const periodCell = sheet.getCell(`A${currentRow}`);
+        periodCell.value = periodText;
+        periodCell.alignment = { vertical: 'middle', horizontal: 'left' };
+        currentRow += 2;
+
         // 日付でソート（昇順）
         const rows = dataByName[name].sort((a, b) => {
             const dateA = new Date(a.date);
             const dateB = new Date(b.date);
             return dateA - dateB;
         });
-
-        // 名前のセクションタイトル
-        sheet.mergeCells(`A${currentRow}:F${currentRow}`);
-        const nameCell = sheet.getCell(`A${currentRow}`);
-        nameCell.value = name;
-        nameCell.font = { size: 12, bold: true };
-        nameCell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFE0E0E0' }
-        };
-        nameCell.alignment = { vertical: 'middle', horizontal: 'left' };
-        sheet.getRow(currentRow).height = 20;
-        currentRow++;
 
         // ヘッダー行
         const headerRow = sheet.getRow(currentRow);
@@ -1294,16 +1286,15 @@ function exportDetailData(workbook, detailData, params, borderStyle) {
                 cell.alignment = { vertical: 'middle', horizontal: 'right' };
             }
         });
-        currentRow += 2; // 名前グループ間に空行
-    });
 
-    // 列幅調整
-    sheet.getColumn(1).width = 15;  // 日付
-    sheet.getColumn(2).width = 15;  // 分類
-    sheet.getColumn(3).width = 20;  // タスク名
-    sheet.getColumn(4).width = 40;  // 作業内容
-    sheet.getColumn(5).width = 30;  // 備考
-    sheet.getColumn(6).width = 12;  // 作業時間
+        // 列幅調整
+        sheet.getColumn(1).width = 15;  // 日付
+        sheet.getColumn(2).width = 15;  // 分類
+        sheet.getColumn(3).width = 20;  // タスク名
+        sheet.getColumn(4).width = 40;  // 作業内容
+        sheet.getColumn(5).width = 30;  // 備考
+        sheet.getColumn(6).width = 12;  // 作業時間
+    });
 }
 
 // Excel出力ボタン押下時の処理

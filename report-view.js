@@ -44,7 +44,7 @@ function loadFilterOptions() {
 
 // イベントリスナーの設定
 function setupEventListeners() {
-    document.getElementById('periodType').addEventListener('change', togglePeriodGroup);
+    document.getElementById('periodType').addEventListener('change', updatePeriodDates);
     document.getElementById('reportSearchForm').addEventListener('submit', handleSearch);
     document.getElementById('reportSearchForm').addEventListener('reset', handleReset);
     document.getElementById('btn-export-excel').addEventListener('click', handleExcelExport);
@@ -52,21 +52,11 @@ function setupEventListeners() {
 
 // 初期値の設定
 function setInitialValues() {
-    const today = new Date();
+    // 期間単位は「年」をデフォルトにする
+    document.getElementById('periodType').value = 'year';
 
-    // 期間選択のデフォルト値を設定
-    const monthPicker = document.getElementById('monthPicker');
-    monthPicker.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-
-    const dayPicker = document.getElementById('dayPicker');
-    dayPicker.value = today.toISOString().split('T')[0];
-
-    const weekPicker = document.getElementById('weekPicker');
-    const weekString = getWeekString(today);
-    weekPicker.value = weekString;
-
-    // 期間単位は「全期間」（空）をデフォルトにする
-    document.getElementById('periodType').value = '';
+    // 期間を更新
+    updatePeriodDates();
 }
 
 // 週の文字列を取得（YYYY-Www形式）
@@ -118,20 +108,45 @@ function getWeekInfo(weekString) {
     return { month, weekOfMonth };
 }
 
-// 期間グループの表示/非表示
-function togglePeriodGroup() {
+// 期間単位の変更時にFrom/Toを自動設定
+function updatePeriodDates() {
     const periodType = document.getElementById('periodType').value;
-    document.getElementById('monthGroup').style.display = 'none';
-    document.getElementById('weekGroup').style.display = 'none';
-    document.getElementById('dayGroup').style.display = 'none';
+    const today = new Date();
+    const fromDateInput = document.getElementById('fromDate');
+    const toDateInput = document.getElementById('toDate');
 
-    if (periodType === 'month') {
-        document.getElementById('monthGroup').style.display = 'block';
+    let fromDate, toDate;
+
+    if (periodType === 'year') {
+        // 年: 今年の1月1日 〜 今年の12月31日
+        fromDate = new Date(today.getFullYear(), 0, 1);
+        toDate = new Date(today.getFullYear(), 11, 31);
+    } else if (periodType === 'month') {
+        // 月単位: 今月の1日 〜 今月の末日
+        fromDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        toDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     } else if (periodType === 'week') {
-        document.getElementById('weekGroup').style.display = 'block';
+        // 週単位: 本日から1週間前 〜 本日
+        toDate = new Date(today);
+        fromDate = new Date(today);
+        fromDate.setDate(today.getDate() - 7);
     } else if (periodType === 'day') {
-        document.getElementById('dayGroup').style.display = 'block';
+        // 日単位: 本日 〜 本日
+        fromDate = new Date(today);
+        toDate = new Date(today);
     }
+
+    // 日付をYYYY-MM-DD形式に変換
+    fromDateInput.value = formatDateToInput(fromDate);
+    toDateInput.value = formatDateToInput(toDate);
+}
+
+// 日付をYYYY-MM-DD形式に変換
+function formatDateToInput(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 
@@ -396,55 +411,20 @@ function filterData(data, params) {
     console.log('検索条件:', params);
 
     const filteredData = data.filter(row => {
-        // 期間フィルター
-        if (params.period.type && params.period.value) {
+        // 期間フィルター（From/Toで範囲指定）
+        if (params.period.fromDate && params.period.toDate) {
             const rowDate = new Date(row.date);
+            const fromDate = new Date(params.period.fromDate);
+            const toDate = new Date(params.period.toDate);
 
-            if (params.period.type === 'day') {
-                let normalizedRowDate = row.date;
+            // 時刻を0:00:00にリセットして日付のみで比較
+            rowDate.setHours(0, 0, 0, 0);
+            fromDate.setHours(0, 0, 0, 0);
+            toDate.setHours(0, 0, 0, 0);
 
-                // 日付が文字列でない場合（Dateオブジェクトの場合）
-                if (normalizedRowDate instanceof Date) {
-                    const year = normalizedRowDate.getFullYear();
-                    const month = String(normalizedRowDate.getMonth() + 1).padStart(2, '0');
-                    const day = String(normalizedRowDate.getDate()).padStart(2, '0');
-                    normalizedRowDate = `${year}-${month}-${day}`;
-                } else if (typeof normalizedRowDate === 'string') {
-                    // ISO形式（YYYY-MM-DDTHH:mm:ss.sssZ）の場合はDateオブジェクトに変換してローカル日付を取得
-                    if (normalizedRowDate.includes('T') && (normalizedRowDate.includes('Z') || normalizedRowDate.includes('+'))) {
-                        const dateObj = new Date(normalizedRowDate);
-                        const year = dateObj.getFullYear();
-                        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-                        const day = String(dateObj.getDate()).padStart(2, '0');
-                        normalizedRowDate = `${year}-${month}-${day}`;
-                    }
-                    // 単純なISO形式（YYYY-MM-DDTHH:mm:ss）の場合
-                    else if (normalizedRowDate.includes('T')) {
-                        normalizedRowDate = normalizedRowDate.split('T')[0];
-                    }
-                    // スラッシュ区切り（YYYY/MM/DD）の場合
-                    else if (normalizedRowDate.includes('/')) {
-                        const parts = normalizedRowDate.split('/');
-                        if (parts.length === 3) {
-                            normalizedRowDate = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
-                        }
-                    }
-                    normalizedRowDate = normalizedRowDate.trim();
-                }
-
-                const normalizedSearchDate = params.period.value.trim();
-
-                console.log(`日付比較: 元="${row.date}" (型:${typeof row.date}) → 正規化="${normalizedRowDate}" vs 検索="${normalizedSearchDate}" → 一致:${normalizedRowDate === normalizedSearchDate}`);
-
-                if (normalizedRowDate !== normalizedSearchDate) return false;
-            } else if (params.period.type === 'month') {
-                const [year, month] = params.period.value.split('-');
-                const rowYear = rowDate.getFullYear();
-                const rowMonth = rowDate.getMonth() + 1;
-                if (rowYear !== parseInt(year) || rowMonth !== parseInt(month)) return false;
-            } else if (params.period.type === 'week') {
-                const weekString = getWeekString(rowDate);
-                if (weekString !== params.period.value) return false;
+            // From <= rowDate <= To
+            if (rowDate < fromDate || rowDate > toDate) {
+                return false;
             }
         }
 
@@ -581,16 +561,18 @@ function displayResults(aggregatedData, detailData, params, remarksSummary) {
     html += '<div class="summary-section">';
     html += '<h3 class="summary-title">📅 集計期間</h3>';
     html += '<div class="period-info">';
-    if (params.period.type === 'day') {
-        html += `<strong>対象日:</strong> ${params.period.value}`;
-    } else if (params.period.type === 'week') {
-        const weekInfo = getWeekInfo(params.period.value);
-        html += `<strong>対象週:</strong> ${params.period.value}（${weekInfo.month}月${weekInfo.weekOfMonth}週目）`;
+    html += `<strong>期間単位:</strong> `;
+    if (params.period.type === 'year') {
+        html += '年';
     } else if (params.period.type === 'month') {
-        html += `<strong>対象月:</strong> ${params.period.value}`;
-    } else {
-        html += `<strong>全期間</strong>`;
+        html += '月単位';
+    } else if (params.period.type === 'week') {
+        html += '週単位';
+    } else if (params.period.type === 'day') {
+        html += '日単位';
     }
+    html += '<br>';
+    html += `<strong>対象期間:</strong> ${params.period.fromDate} 〜 ${params.period.toDate}`;
     html += '</div>';
     html += '</div>';
 
@@ -811,14 +793,8 @@ function getSearchParams() {
 
     const periodType = document.getElementById('periodType').value;
     params.period.type = periodType;
-
-    if (periodType === 'month') {
-        params.period.value = document.getElementById('monthPicker').value;
-    } else if (periodType === 'week') {
-        params.period.value = document.getElementById('weekPicker').value;
-    } else if (periodType === 'day') {
-        params.period.value = document.getElementById('dayPicker').value;
-    }
+    params.period.fromDate = document.getElementById('fromDate').value;
+    params.period.toDate = document.getElementById('toDate').value;
 
     return params;
 }
@@ -916,16 +892,17 @@ function exportPivotTable(workbook, data, params, borderStyle, remarksSummary) {
     currentRow++;
 
     let periodText = '';
-    if (params.period.type === 'day') {
-        periodText = `対象日: ${params.period.value}`;
-    } else if (params.period.type === 'week') {
-        const weekInfo = getWeekInfo(params.period.value);
-        periodText = `対象週: ${params.period.value}（${weekInfo.month}月${weekInfo.weekOfMonth}週目）`;
+    let periodTypeText = '';
+    if (params.period.type === 'year') {
+        periodTypeText = '年';
     } else if (params.period.type === 'month') {
-        periodText = `対象月: ${params.period.value}`;
-    } else {
-        periodText = '全期間';
+        periodTypeText = '月単位';
+    } else if (params.period.type === 'week') {
+        periodTypeText = '週単位';
+    } else if (params.period.type === 'day') {
+        periodTypeText = '日単位';
     }
+    periodText = `期間単位: ${periodTypeText} / 対象期間: ${params.period.fromDate} 〜 ${params.period.toDate}`;
     sheet.mergeCells(`A${currentRow}:${lastCol}${currentRow}`);
     const periodValueCell = sheet.getCell(`A${currentRow}`);
     periodValueCell.value = periodText;
@@ -1189,16 +1166,17 @@ function exportDetailData(workbook, detailData, params, borderStyle) {
 
     // 集計期間
     let periodText = '';
-    if (params.period.type === 'day') {
-        periodText = `対象日: ${params.period.value}`;
-    } else if (params.period.type === 'week') {
-        const weekInfo = getWeekInfo(params.period.value);
-        periodText = `対象週: ${params.period.value}（${weekInfo.month}月${weekInfo.weekOfMonth}週目）`;
+    let periodTypeText = '';
+    if (params.period.type === 'year') {
+        periodTypeText = '年';
     } else if (params.period.type === 'month') {
-        periodText = `対象月: ${params.period.value}`;
-    } else {
-        periodText = '全期間';
+        periodTypeText = '月単位';
+    } else if (params.period.type === 'week') {
+        periodTypeText = '週単位';
+    } else if (params.period.type === 'day') {
+        periodTypeText = '日単位';
     }
+    periodText = `期間単位: ${periodTypeText} / 対象期間: ${params.period.fromDate} 〜 ${params.period.toDate}`;
     sheet.mergeCells(`A${currentRow}:F${currentRow}`);
     const periodCell = sheet.getCell(`A${currentRow}`);
     periodCell.value = periodText;
@@ -1243,7 +1221,7 @@ function exportDetailData(workbook, detailData, params, borderStyle) {
 
         // ヘッダー行
         const headerRow = sheet.getRow(currentRow);
-        headerRow.values = ['日付', '分類', 'タスク名', '作業内容', '備考', '作業時間'];
+        headerRow.values = ['日付', '分類', 'タスク名', '作業内容', '備考', '作業時間（h）'];
         headerRow.height = 25;
         headerRow.eachCell((cell, colNumber) => {
             cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -1268,12 +1246,18 @@ function exportDetailData(workbook, detailData, params, borderStyle) {
                 row.taskName,
                 row.workContent,
                 row.remarks || '',
-                `${row.workHours}h`
+                parseFloat(row.workHours)
             ];
 
             dataRow.eachCell((cell, colNumber) => {
                 cell.border = borderStyle;
                 cell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+
+                // 作業時間列（6列目）は数値フォーマットを設定
+                if (colNumber === 6) {
+                    cell.numFmt = '0.0';
+                    cell.alignment = { vertical: 'top', horizontal: 'right' };
+                }
 
                 // 交互に背景色を設定
                 if (index % 2 === 0) {
@@ -1292,7 +1276,7 @@ function exportDetailData(workbook, detailData, params, borderStyle) {
         // 合計行
         const totalHours = rows.reduce((sum, row) => sum + parseFloat(row.workHours || 0), 0);
         const totalRow = sheet.getRow(currentRow);
-        totalRow.values = ['', '', '', '', '合計', `${totalHours.toFixed(1)}h`];
+        totalRow.values = ['', '', '', '', '合計', totalHours];
         totalRow.height = 25;
         totalRow.eachCell((cell, colNumber) => {
             cell.font = { bold: true };
@@ -1303,6 +1287,12 @@ function exportDetailData(workbook, detailData, params, borderStyle) {
             };
             cell.alignment = { vertical: 'middle', horizontal: 'center' };
             cell.border = borderStyle;
+
+            // 作業時間列（6列目）は数値フォーマットと右寄せ
+            if (colNumber === 6) {
+                cell.numFmt = '0.0';
+                cell.alignment = { vertical: 'middle', horizontal: 'right' };
+            }
         });
         currentRow += 2; // 名前グループ間に空行
     });
@@ -1354,9 +1344,6 @@ function toggleRemarksSummary(index) {
 
 // リセット処理
 function handleReset() {
-    document.getElementById('monthGroup').style.display = 'none';
-    document.getElementById('weekGroup').style.display = 'none';
-    document.getElementById('dayGroup').style.display = 'none';
     document.getElementById('resultsSection').style.display = 'none';
 
     currentResults = null;
@@ -1369,4 +1356,3 @@ function handleReset() {
 
     setTimeout(setInitialValues, 0);
 }
-
